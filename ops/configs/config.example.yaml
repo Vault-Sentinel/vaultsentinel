@@ -1,0 +1,95 @@
+# VaultSentinel Configuration Example
+# Copy this file to config.yaml and update with your values
+
+# GitHub Configuration
+github:
+  repo: "org/example-repo"  # Repository to monitor
+  token: "ghp_your_token_here"  # GitHub personal access token
+
+# Scanning Configuration
+scanning:
+  poll_interval_seconds: 120  # How often to scan (minimum 60)
+  scan_depth_commits: 10  # Number of recent commits to scan
+  max_file_size_mb: 10  # Maximum file size to scan
+
+# Slack Configuration
+slack:
+  webhook_url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+  retry_attempts: 3
+  retry_delay_seconds: 1
+
+# Remediation Configuration
+remediation:
+  enabled: false  # Enable automated remediation
+  aws:
+    access_key_id: "your_aws_key"  # Optional
+    secret_access_key: "your_aws_secret"  # Optional
+    region: "us-east-1"  # Optional
+
+# Detection Configuration
+detection:
+  entropy_threshold: 4.5  # Entropy threshold for detection
+  allowlist_paths:  # Paths that reduce confidence
+    - "/tests/"
+    - "/examples/"
+    - "/fixtures/"
+  denylist_patterns:  # Patterns that indicate false positives
+    - "dummy"
+    - "example"
+    - "test"
+    - "mock"
+
+# Database Configuration
+database:
+  url: "sqlite:///./data/vaultsentinel.db"
+  # For PostgreSQL: "postgresql://user:password@localhost/vaultsentinel"
+  # For MySQL: "mysql://user:password@localhost/vaultsentinel"
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "json"  # json or text
+  file: "/app/logs/vaultsentinel.log"  # Optional log file
+
+# API Configuration
+api:
+  host: "0.0.0.0"
+  port: 8000
+  cors_origins: ["http://localhost:3000"]  # For development
+
+# Security Configuration
+security:
+  mask_secrets: true  # Never log full secrets
+  max_secret_length: 100  # Maximum secret length to process
+  enable_audit_logging: true  # Log all actions for audit
+
+# Plugin Configuration
+plugins:
+  detectors:
+    regex:
+      enabled: true
+    entropy:
+      enabled: true
+      min_length: 20
+    ml:  # Future ML detector
+      enabled: false
+      model_path: "/app/models/secret_classifier.pkl"
+  
+  connectors:
+    github:
+      enabled: true
+    gitlab:  # Future GitLab connector
+      enabled: false
+      url: "https://gitlab.com"
+      token: "your_gitlab_token"
+  
+  remediation:
+    slack:
+      enabled: true
+    aws:
+      enabled: false  # Only enable if you have AWS credentials
+    custom_webhook:  # Future custom webhook
+      enabled: false
+      url: "https://your-webhook.com/endpoint"
+      headers:
+        Authorization: "Bearer your_token"

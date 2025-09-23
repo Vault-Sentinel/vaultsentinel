@@ -1,0 +1,37 @@
+# VaultSentinel Code Owners
+# This file defines who is responsible for different parts of the codebase
+
+# Core team has final say on all changes
+* @vaultsentinel/core-team
+
+# Core agent and configuration
+/packages/core/ @vaultsentinel/core-team @vaultsentinel/security-team
+
+# Detectors and detection logic
+/packages/detectors/ @vaultsentinel/security-team @vaultsentinel/ml-team
+
+# Connectors and data sources
+/packages/connectors/ @vaultsentinel/integrations-team
+
+# Remediation and actions
+/packages/remediation/ @vaultsentinel/security-team @vaultsentinel/ops-team
+
+# API and web interface
+/packages/api/ @vaultsentinel/api-team @vaultsentinel/frontend-team
+
+# Infrastructure and deployment
+/infra/ @vaultsentinel/infrastructure-team @vaultsentinel/ops-team
+
+# Documentation
+*.md @vaultsentinel/docs-team
+/README.md @vaultsentinel/core-team
+/CONTRIBUTING.md @vaultsentinel/core-team
+
+# CI/CD and workflows
+/.github/ @vaultsentinel/ops-team @vaultsentinel/ci-team
+
+# Tests
+/tests/ @vaultsentinel/qa-team
+
+# Configuration and operations
+/ops/ @vaultsentinel/ops-team

@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  vaultsentinel:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - GITHUB_REPO=${GITHUB_REPO}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - POLL_INTERVAL_SECONDS=${POLL_INTERVAL_SECONDS:-120}
+      - SCAN_DEPTH_COMMITS=${SCAN_DEPTH_COMMITS:-10}
+      - REMEDIATION_ENABLED=${REMEDIATION_ENABLED:-false}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - DETECTION_ENTROPY_THRESHOLD=${DETECTION_ENTROPY_THRESHOLD:-4.5}
+      - ALLOWLIST_PATHS=${ALLOWLIST_PATHS:-/tests/,/examples/,/fixtures/}
+      - DENYLIST_PATTERNS=${DENYLIST_PATTERNS:-dummy,example,test,mock}
+      - DATABASE_URL=sqlite:///./data/vaultsentinel.db
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
