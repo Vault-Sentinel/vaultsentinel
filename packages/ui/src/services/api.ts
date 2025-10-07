@@ -23,7 +23,7 @@ export const getFindings = async (params?: {
   limit?: number
   offset?: number
 }): Promise<ApiResponse<Finding[]>> => {
-  const response = await api.get('/findings', { params })
+  const response = await api.get('/api/findings', { params })
   return response.data
 }
 
@@ -31,13 +31,13 @@ export const updateFinding = async (
   id: string,
   data: { status?: string; notes?: string }
 ): Promise<{ message: string }> => {
-  const response = await api.patch(`/findings/${id}`, data)
+  const response = await api.patch(`/api/findings/${id}`, data)
   return response.data
 }
 
 // Metrics
 export const getMetrics = async (): Promise<Metrics> => {
-  const response = await api.get('/metrics')
+  const response = await api.get('/api/metrics')
   return response.data
 }
 

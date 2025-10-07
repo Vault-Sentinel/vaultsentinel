@@ -4,6 +4,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 from datetime import datetime
+import uuid
 
 from .models import Finding, ScanRun, FindingModel, ScanRunModel, FindingStatus, SecretKind
 
@@ -16,8 +17,11 @@ class FindingRepository:
     
     def create(self, finding: Finding) -> Finding:
         """Create a new finding."""
+        # Generate ID if not present
+        finding_id = getattr(finding, 'id', None) or str(uuid.uuid4())
+        
         db_finding = FindingModel(
-            id=finding.id,
+            id=finding_id,
             fingerprint=finding.fingerprint,
             kind=finding.kind,
             confidence=finding.confidence,

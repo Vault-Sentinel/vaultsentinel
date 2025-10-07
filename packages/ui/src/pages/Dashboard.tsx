@@ -18,6 +18,9 @@ const Dashboard: React.FC = () => {
   const [recentFindings, setRecentFindings] = useState<Finding[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [scanning, setScanning] = useState(false)
+  const [githubUrl, setGithubUrl] = useState('')
+  const [showGithubInput, setShowGithubInput] = useState(false)
 
   useEffect(() => {
     loadDashboardData()
@@ -43,6 +46,68 @@ const Dashboard: React.FC = () => {
       console.error('Dashboard error:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const triggerScan = async () => {
+    try {
+      setScanning(true)
+      const response = await fetch('http://localhost:8000/api/scan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        console.log('Scan completed:', result)
+        // Refresh dashboard data after scan
+        await loadDashboardData()
+        alert(`Scan completed! Found ${result.findings_count} secrets.`)
+      } else {
+        throw new Error('Scan failed')
+      }
+    } catch (err) {
+      setError('Failed to trigger scan')
+      console.error('Scan error:', err)
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  const triggerGithubScan = async () => {
+    if (!githubUrl.trim()) {
+      alert('Please enter a GitHub repository URL')
+      return
+    }
+    
+    try {
+      setScanning(true)
+      const response = await fetch('http://localhost:8000/api/scan-github', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ github_url: githubUrl })
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        console.log('GitHub scan completed:', result)
+        // Refresh dashboard data after scan
+        await loadDashboardData()
+        alert(`GitHub scan completed! Found ${result.findings_count} secrets in ${result.repo}.`)
+        setGithubUrl('')
+        setShowGithubInput(false)
+      } else {
+        throw new Error('GitHub scan failed')
+      }
+    } catch (err) {
+      setError('Failed to trigger GitHub scan')
+      console.error('GitHub scan error:', err)
+    } finally {
+      setScanning(false)
     }
   }
 
@@ -101,11 +166,71 @@ const Dashboard: React.FC = () => {
     <div className="p-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-2 text-gray-600">
-          Continuous secrets shielding for your repositories
-        </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+            <p className="mt-2 text-gray-600">
+              Continuous secrets shielding for your repositories
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={triggerScan}
+              disabled={scanning}
+              className="btn btn-primary flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${scanning ? 'animate-spin' : ''}`} />
+              {scanning ? 'Scanning...' : 'Run Test Scan'}
+            </button>
+            <button
+              onClick={() => setShowGithubInput(!showGithubInput)}
+              disabled={scanning}
+              className="btn btn-secondary flex items-center gap-2"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Scan GitHub Repo
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* GitHub URL Input */}
+      {showGithubInput && (
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Scan GitHub Repository</h3>
+          <div className="flex gap-2">
+            <input
+              type="url"
+              value={githubUrl}
+              onChange={(e) => setGithubUrl(e.target.value)}
+              placeholder="https://github.com/username/repository"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+              disabled={scanning}
+            />
+            <button
+              onClick={triggerGithubScan}
+              disabled={scanning || !githubUrl.trim()}
+              className="btn btn-primary flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${scanning ? 'animate-spin' : ''}`} />
+              {scanning ? 'Scanning...' : 'Scan'}
+            </button>
+            <button
+              onClick={() => {
+                setShowGithubInput(false)
+                setGithubUrl('')
+              }}
+              className="btn btn-secondary"
+              disabled={scanning}
+            >
+              Cancel
+            </button>
+          </div>
+          <p className="text-sm text-gray-600 mt-2">
+            Enter a GitHub repository URL to scan for secrets. Example: https://github.com/username/repository
+          </p>
+        </div>
+      )}
 
       {/* Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
