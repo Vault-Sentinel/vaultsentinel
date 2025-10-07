@@ -302,26 +302,44 @@ mypy packages/ main.py
 pytest tests/
 ```
 
-## 🤖 LLM Model Selection
+## 🤖 LLM Integration via MCP (Model Context Protocol)
 
-VaultSentinel supports multiple LLM providers and models. You can choose which models to use based on your needs:
+VaultSentinel now uses MCP (Model Context Protocol) as the single gateway for all LLM requests, providing secure, robust, and scalable LLM integration.
 
-### **Available Providers:**
-- **OpenAI**: GPT-3.5-turbo, GPT-4, GPT-4-turbo
-- **Google Gemini**: Gemini-1.5-flash, Gemini-1.5-pro
-- **Both**: Use both providers for comparison
+### **MCP Architecture Benefits:**
+- **🔒 Security**: Centralized authentication and secret management
+- **🔄 Reliability**: Built-in retries, circuit breaker, and rate limiting
+- **📊 Telemetry**: Comprehensive logging and monitoring
+- **🧪 Testing**: Demo mode with deterministic responses
+- **🔧 Flexibility**: Support for multiple authentication methods
 
-### **Quick Configuration:**
+### **Quick Start - Demo Mode:**
 ```bash
-# Interactive configuration helper
-python scripts/configure_llm.py
+# Enable demo mode for testing
+export DEMO_MODE=true
+python main.py --api-only
+
+# Test MCP integration
+curl -X POST http://localhost:8000/mcp/test \
+  -H "Content-Type: application/json" \
+  -d '{"text": "AKIAIOSFODNN7EXAMPLE", "context": {"file_path": "config/aws.py"}}'
 ```
 
-### **Manual Configuration:**
-Edit your `.env` file:
+### **Production Configuration:**
+Edit your `.env` file with MCP settings:
 
 ```bash
-# LLM Configuration
+# MCP (Model Context Protocol) Configuration
+MCP_BASE_URL=https://mcp.your-company.com  # Your MCP server URL
+MCP_AUTH_TYPE=api_key  # api_key, oauth2, mtls, none
+MCP_API_KEY=your_mcp_api_key_here  # API key for MCP server
+MCP_OAUTH_TOKEN_URL=https://auth.your-company.com/token  # OAuth2 token endpoint
+MCP_CLIENT_ID=your_oauth_client_id  # OAuth2 client ID
+MCP_CLIENT_SECRET=your_oauth_client_secret  # OAuth2 client secret
+MCP_TIMEOUT_SECONDS=30  # Request timeout in seconds
+DEMO_MODE=false  # Set to true for demo mode with mock responses
+
+# Legacy LLM Configuration (will be replaced by MCP)
 LLM_CLASSIFIER_ENABLED=true
 LLM_PROVIDER=openai  # openai, gemini, both
 OPENAI_API_KEY=sk-your-openai-key-here
@@ -331,25 +349,173 @@ GEMINI_MODEL=gemini-1.5-flash  # gemini-1.5-flash, gemini-1.5-pro
 LLM_CONFIDENCE_THRESHOLD=0.7
 ```
 
-### **Model Recommendations:**
+### **MCP Authentication Methods:**
 
-| Use Case | Recommended Model | Speed | Cost | Accuracy |
-|----------|------------------|-------|------|----------|
-| **Development** | `gpt-3.5-turbo` | Fast | Low | Good |
-| **Production** | `gpt-4` | Medium | High | Excellent |
-| **High Volume** | `gemini-1.5-flash` | Very Fast | Low | Good |
-| **Best Accuracy** | `gemini-1.5-pro` | Medium | Medium | Excellent |
-
-### **Provider Selection:**
-- **`openai`**: Use only OpenAI models
-- **`gemini`**: Use only Google Gemini models  
-- **`both`**: Use both providers (recommended for comparison)
-
-### **Testing LLM Classifiers:**
+#### **1. API Key Authentication:**
 ```bash
-# Test all configured LLM classifiers
+MCP_AUTH_TYPE=api_key
+MCP_API_KEY=your_mcp_api_key_here
+```
+
+#### **2. OAuth2 Client Credentials:**
+```bash
+MCP_AUTH_TYPE=oauth2
+MCP_OAUTH_TOKEN_URL=https://auth.your-company.com/token
+MCP_CLIENT_ID=your_oauth_client_id
+MCP_CLIENT_SECRET=your_oauth_client_secret
+```
+
+#### **3. No Authentication (Development):**
+```bash
+MCP_AUTH_TYPE=none
+```
+
+### **Security Checklist:**
+
+#### **✅ Production Security:**
+- [ ] Store MCP API keys in secret management system (AWS Secrets Manager, HashiCorp Vault, etc.)
+- [ ] Use HTTPS for all MCP communications
+- [ ] Enable TLS certificate verification
+- [ ] Implement IP allowlisting if supported by MCP server
+- [ ] Set up RBAC (Role-Based Access Control) on MCP server
+- [ ] Enable audit logging on MCP server
+- [ ] Rotate API keys regularly (recommended: every 90 days)
+- [ ] Use least privilege principle for MCP access
+
+#### **✅ Secret Management:**
+- [ ] Never commit API keys to version control
+- [ ] Use environment variables or secret injection
+- [ ] Implement key rotation procedures
+- [ ] Monitor for secret leakage in logs
+- [ ] Use different keys for different environments
+
+#### **✅ Monitoring & Alerting:**
+- [ ] Set up alerts for MCP authentication failures
+- [ ] Monitor circuit breaker activations
+- [ ] Track MCP request latency and error rates
+- [ ] Set up alerts for secret detection in logs
+- [ ] Monitor MCP server health and availability
+
+### **Testing MCP Integration:**
+
+#### **Unit Tests:**
+```bash
+# Run MCP client unit tests
+pytest tests/test_mcp_client.py -v
+
+# Run MCP integration tests
+pytest tests/integration/test_mcp_integration.py -v
+```
+
+#### **Demo Mode Testing:**
+```bash
+# Test with demo mode
+DEMO_MODE=true python -c "
+import asyncio
+from api.clients import get_mcp_client
+
+async def test():
+    client = get_mcp_client()
+    result = await client.chat({'messages': [{'role': 'user', 'content': 'test'}]})
+    print(f'Status: {result[\"status\"]}')
+    print(f'Request ID: {result[\"request_id\"]}')
+
+asyncio.run(test())
+"
+```
+
+#### **API Testing:**
+```bash
+# Test MCP API endpoint
+curl -X POST http://localhost:8000/mcp/test \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "AKIAIOSFODNN7EXAMPLE",
+    "context": {
+      "file_path": "config/aws.py",
+      "secret_kind": "aws_access_key"
+    }
+  }'
+```
+
+### **Troubleshooting:**
+
+#### **Common Issues:**
+
+1. **Authentication Failures:**
+   ```bash
+   # Check MCP server connectivity
+   curl -H "Authorization: Bearer $MCP_API_KEY" $MCP_BASE_URL/health
+   ```
+
+2. **Circuit Breaker Open:**
+   ```bash
+   # Check client stats
+   curl http://localhost:8000/mcp/test -d '{"text": "test"}' | jq '.client_stats'
+   ```
+
+3. **Rate Limiting:**
+   ```bash
+   # Check for rate limit headers in logs
+   grep "Rate limited" logs/vaultsentinel.log
+   ```
+
+#### **Log Analysis:**
+```bash
+# Check MCP request IDs in logs
+grep "mcp_request_id" logs/vaultsentinel.log
+
+# Check for secret leakage
+python scripts/redact_logs.py logs/vaultsentinel.log --check
+
+# Redact sensitive information
+python scripts/redact_logs.py logs/vaultsentinel.log -o logs/redacted.log
+```
+
+### **Legacy LLM Configuration (Deprecated):**
+
+> **⚠️ Note**: Direct LLM provider configuration is deprecated in favor of MCP integration. The following configuration will be removed in future versions.
+
+```bash
+# Interactive configuration helper (legacy)
+python scripts/configure_llm.py
+
+# Test legacy LLM classifiers
 python test_llm_classifiers.py
 ```
+
+### **Migration Guide:**
+
+#### **From Direct LLM to MCP:**
+1. **Update Environment Variables:**
+   ```bash
+   # Old configuration
+   OPENAI_API_KEY=sk-your-key
+   GEMINI_API_KEY=your-key
+   
+   # New MCP configuration
+   MCP_BASE_URL=https://mcp.your-company.com
+   MCP_AUTH_TYPE=api_key
+   MCP_API_KEY=your_mcp_key
+   ```
+
+2. **Update Code:**
+   ```python
+   # Old direct LLM usage
+   from openai import OpenAI
+   client = OpenAI(api_key="sk-...")
+   
+   # New MCP usage
+   from api.clients import get_mcp_client
+   client = get_mcp_client()
+   result = await client.chat(conversation)
+   ```
+
+3. **Test Migration:**
+   ```bash
+   # Run migration tests
+   pytest tests/test_mcp_client.py tests/integration/test_mcp_integration.py
+   ```
 
 ## 📄 License
 

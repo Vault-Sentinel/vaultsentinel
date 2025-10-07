@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from api.models import Finding, ScanRun, get_db
 from agent.config import settings, get_redacted_config
+from api.clients import get_mcp_client
 
 app = FastAPI(
     title="VaultSentinel",
@@ -32,6 +33,12 @@ class FindingUpdate(BaseModel):
     notes: Optional[str] = None
 
 
+class MCPTestRequest(BaseModel):
+    """Model for MCP test request."""
+    text: str
+    context: dict = {}
+
+
 @app.get("/healthz")
 async def health_check():
     """Health check endpoint."""
@@ -42,6 +49,68 @@ async def health_check():
         "uptime": uptime,
         "config": get_redacted_config()
     }
+
+
+@app.post("/mcp/test")
+async def test_mcp_classification(request: MCPTestRequest):
+    """Test MCP classification endpoint."""
+    try:
+        # Get MCP client
+        mcp_client = get_mcp_client()
+        
+        # Build conversation for classification
+        conversation = {
+            "messages": [
+                {
+                    "role": "system", 
+                    "content": "You are a security expert analyzing potential secrets. Respond with JSON only."
+                },
+                {
+                    "role": "user", 
+                    "content": f"""
+Analyze this potential secret and determine if it's a real security risk.
+
+Text: "{request.text}"
+Context: {request.context}
+
+Consider:
+1. Is this a real secret or a placeholder/example?
+2. What's the confidence level (0.0-1.0)?
+3. What type of secret is it?
+
+Respond with JSON:
+{{
+    "is_secret": true/false,
+    "confidence": 0.0-1.0,
+    "secret_type": "aws_access_key|github_token|etc",
+    "reasoning": "brief explanation"
+}}
+"""
+                }
+            ],
+            "model": "gpt-3.5-turbo",
+            "temperature": 0.1,
+            "max_tokens": 200
+        }
+        
+        # Call MCP client
+        response = await mcp_client.chat(conversation)
+        
+        # Return response with MCP request ID
+        return {
+            "mcp_request_id": response.get("request_id"),
+            "mcp_status": response.get("status"),
+            "result": response.get("result"),
+            "mcp_meta": response.get("mcp_meta", {}),
+            "client_stats": mcp_client.get_stats()
+        }
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "mcp_request_id": None,
+            "mcp_status": "error"
+        }
 
 
 @app.get("/findings")

@@ -568,6 +568,30 @@ const Findings: React.FC = () => {
                   </div>
                 </div>
 
+                {/* MCP Integration Info */}
+                {finding.notes && finding.notes.includes('MCP classification') && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-center mb-3">
+                      <div className="p-2 bg-blue-100 rounded-lg mr-3">
+                        <Database className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <h4 className="font-semibold text-blue-800">MCP Classification</h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium text-blue-600">Request ID:</span>
+                        <p className="text-blue-900 font-mono text-xs">
+                          {finding.notes.match(/Request ID: ([a-zA-Z0-9-]+)/)?.[1] || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-blue-600">Classification Method:</span>
+                        <p className="text-blue-900">MCP (Model Context Protocol)</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Metadata */}
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
                   <h4 className="font-semibold text-gray-800 mb-3">Detection Metadata</h4>

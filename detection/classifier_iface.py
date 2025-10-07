@@ -109,7 +109,7 @@ class MLClassifier(SecretClassifier):
 
 
 class LLMClassifier(SecretClassifier):
-    """LLM-based classifier using OpenAI or Google Gemini."""
+    """LLM-based classifier using MCP (Model Context Protocol) client."""
     
     def __init__(self, api_key: str = None, model: str = "gpt-3.5-turbo", provider: str = "openai"):
         """Initialize LLM classifier."""
@@ -117,74 +117,70 @@ class LLMClassifier(SecretClassifier):
         self.api_key = api_key
         self.model = model
         self.provider = provider
-        self.client = None
+        self.mcp_client = None
         
-        if self.api_key:
-            if provider == "openai":
-                try:
-                    import openai
-                    self.client = openai.OpenAI(api_key=self.api_key)
-                except ImportError:
-                    print("Warning: OpenAI package not installed. Install with: pip install openai")
-            elif provider == "gemini":
-                try:
-                    import google.generativeai as genai
-                    genai.configure(api_key=self.api_key)
-                    self.client = genai.GenerativeModel(self.model)
-                except ImportError:
-                    print("Warning: Google Generative AI package not installed. Install with: pip install google-generativeai")
+        # Import MCP client
+        try:
+            from api.clients import get_mcp_client
+            self.mcp_client = get_mcp_client()
+        except ImportError as e:
+            print(f"Warning: MCP client not available: {e}")
+            print("Falling back to rule-based classifier")
     
     def classify(self, text: str, context: Dict) -> ClassificationResult:
-        """Classify using LLM."""
-        if not self.client:
-            # Fall back to rule-based if no client
+        """Classify using LLM via MCP client."""
+        if not self.mcp_client:
+            # Fall back to rule-based if no MCP client
             rule_classifier = RuleBasedClassifier()
             return rule_classifier.classify(text, context)
         
         try:
-            if self.provider == "openai":
-                return self._classify_openai(text, context)
-            elif self.provider == "gemini":
-                return self._classify_gemini(text, context)
-            else:
-                raise ValueError(f"Unsupported provider: {self.provider}")
+            import asyncio
+            # Run async MCP call in sync context
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(self._classify_with_mcp(text, context))
+            finally:
+                loop.close()
         except Exception as e:
             print(f"LLM classification error: {e}")
             # Fall back to rule-based
             rule_classifier = RuleBasedClassifier()
             return rule_classifier.classify(text, context)
     
-    def _classify_openai(self, text: str, context: Dict) -> ClassificationResult:
-        """Classify using OpenAI."""
+    async def _classify_with_mcp(self, text: str, context: Dict) -> ClassificationResult:
+        """Classify using MCP client."""
         prompt = self._build_prompt(text, context)
         
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
+        # Build conversation for MCP chat endpoint
+        conversation = {
+            "messages": [
                 {"role": "system", "content": "You are a security expert analyzing potential secrets. Respond with JSON only."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.1,
-            max_tokens=200
-        )
+            "model": self.model,
+            "temperature": 0.1,
+            "max_tokens": 200
+        }
         
-        result = response.choices[0].message.content
-        return self._parse_llm_response(result)
-    
-    def _classify_gemini(self, text: str, context: Dict) -> ClassificationResult:
-        """Classify using Google Gemini."""
-        prompt = self._build_prompt(text, context)
+        # Use MCP client for chat completion
+        response = await self.mcp_client.chat(conversation)
         
-        response = self.client.generate_content(
-            prompt,
-            generation_config={
-                "temperature": 0.1,
-                "max_output_tokens": 200,
-            }
-        )
-        
-        result = response.text
-        return self._parse_llm_response(result)
+        if response["status"] == "ok" and response["result"]:
+            # Extract text from MCP response
+            if isinstance(response["result"], list) and len(response["result"]) > 0:
+                result_text = response["result"][0].get("text", "")
+            elif isinstance(response["result"], dict):
+                result_text = response["result"].get("text", "")
+            else:
+                result_text = str(response["result"])
+            
+            return self._parse_llm_response(result_text)
+        else:
+            # MCP request failed, fall back to rule-based
+            rule_classifier = RuleBasedClassifier()
+            return rule_classifier.classify(text, context)
     
     def _build_prompt(self, text: str, context: Dict) -> str:
         """Build prompt for LLM classification."""
@@ -239,7 +235,7 @@ Respond with JSON:
     
     def is_enabled(self) -> bool:
         """Check if the LLM classifier is enabled."""
-        return self.client is not None
+        return self.mcp_client is not None
 
 
 def get_classifier(classifier_type: str = "rule", **kwargs) -> SecretClassifier:
