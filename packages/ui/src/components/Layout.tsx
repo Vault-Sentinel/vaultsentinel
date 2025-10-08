@@ -7,7 +7,8 @@ import {
   Settings, 
   Menu, 
   X,
-  Activity
+  Activity,
+  MessageSquare
 } from 'lucide-react'
 
 interface LayoutProps {
@@ -19,9 +20,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation()
 
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: Activity },
+    { name: 'Home', href: '/', icon: Activity },
+    { name: 'Dashboards', href: '/dashboards', icon: BarChart3 },
     { name: 'Findings', href: '/findings', icon: Search },
-    { name: 'Metrics', href: '/metrics', icon: BarChart3 },
+    { name: 'MCP Panel', href: '/mcp', icon: MessageSquare },
     { name: 'Settings', href: '/settings', icon: Settings },
   ]
 

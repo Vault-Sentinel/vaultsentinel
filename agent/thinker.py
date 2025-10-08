@@ -23,7 +23,7 @@ class Thinker:
         self.context_filter = ContextFilter()
         self.classifier = get_classifier("rule")  # Use rule-based classifier by default
     
-    def process_commit(self, commit_sha: str, file_changes: List[Dict]) -> List[Dict]:
+    async def process_commit(self, commit_sha: str, file_changes: List[Dict]) -> List[Dict]:
         """Process a commit and its file changes.
         
         Args:
@@ -134,7 +134,7 @@ class Thinker:
         # Apply classifier
         classified_findings = []
         for finding in filtered_findings:
-            classification = self.classifier.classify(
+            classification = await self.classifier.classify(
                 finding["secret"],
                 {
                     "secret_kind": finding["secret_kind"],

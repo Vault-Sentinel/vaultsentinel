@@ -1,12 +1,15 @@
 """Main entry point for VaultSentinel."""
 
 import argparse
+import asyncio
 import logging
 import sys
 from pathlib import Path
 
-# Add packages to path
-sys.path.insert(0, str(Path(__file__).parent / "packages"))
+# Add root directory to path first (for api.clients and api.models)
+sys.path.insert(0, str(Path(__file__).parent))
+# Add packages to path second
+sys.path.append(str(Path(__file__).parent / "packages"))
 
 from core.agent import VaultSentinelAgent
 from core.interfaces import get_registry
@@ -76,15 +79,14 @@ def main():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    # Register plugins
-    register_plugins()
-    
     try:
         if args.api_only:
             print("Starting API server...")
             app = create_app()
-            uvicorn.run(app, host=args.host, port=args.port)
+            uvicorn.run(app, host=args.host, port=args.port, log_level="info")
         else:
+            # Register plugins only for agent mode
+            register_plugins()
             # Initialize agent
             agent = VaultSentinelAgent()
             
@@ -96,7 +98,7 @@ def main():
             
             if args.run_once:
                 print("Running single scan cycle...")
-                results = agent.run_once()
+                results = asyncio.run(agent.run_once())
                 print(f"Scan completed: {results}")
             else:
                 print("Starting VaultSentinel agent...")

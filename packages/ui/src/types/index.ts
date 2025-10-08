@@ -67,3 +67,22 @@ export interface ApiResponse<T> {
   limit?: number
   offset?: number
 }
+
+// MCP Types
+export interface MCPChatMessage {
+  role: 'user' | 'assistant' | 'system'
+  content: string
+}
+
+export interface MCPHealthResponse {
+  status: 'ok' | 'error'
+  details?: Record<string, any>
+  request_id?: string
+}
+
+export interface MCPChatResponse {
+  status: 'ok' | 'error'
+  result?: Record<string, any>
+  request_id?: string
+  mcp_meta?: Record<string, any>
+}

@@ -10,7 +10,6 @@ import {
 } from 'lucide-react'
 import { getHealth } from '../services/api'
 import { HealthStatus } from '../types'
-import LLMConfiguration from '../components/LLMConfiguration'
 
 const Settings: React.FC = () => {
   const [health, setHealth] = useState<HealthStatus | null>(null)
@@ -251,20 +250,6 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
-        {/* LLM Configuration */}
-        {health?.agent_status.config && (
-          <LLMConfiguration 
-            config={{
-              llm_classifier_enabled: health.agent_status.config.llm_classifier_enabled || false,
-              llm_provider: health.agent_status.config.llm_provider || 'openai',
-              openai_model: health.agent_status.config.openai_model || 'gpt-3.5-turbo',
-              gemini_model: health.agent_status.config.gemini_model || 'gemini-1.5-flash',
-              llm_confidence_threshold: health.agent_status.config.llm_confidence_threshold || 0.7,
-              openai_api_key: health.agent_status.config.openai_api_key,
-              gemini_api_key: health.agent_status.config.gemini_api_key
-            }}
-          />
-        )}
 
         {/* Plugin Status */}
         <div className="card p-6">

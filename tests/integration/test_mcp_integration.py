@@ -347,7 +347,7 @@ class TestMCPClassifierIntegration:
         )
         
         # Test classification
-        result = classifier.classify(
+        result = await classifier.classify(
             "AKIAIOSFODNN7EXAMPLE",
             {"file_path": "config/aws.py", "secret_kind": "aws_access_key"}
         )
@@ -374,7 +374,7 @@ class TestMCPClassifierIntegration:
         )
         
         # Test classification with error
-        result = classifier.classify(
+        result = await classifier.classify(
             "AKIAIOSFODNN7EXAMPLE",
             {"file_path": "config/aws.py", "secret_kind": "aws_access_key"}
         )

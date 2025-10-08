@@ -1,6 +1,6 @@
 # VaultSentinel
 
-An agentic AI system for continuous secrets shielding that demonstrates an Observe → Think → Act loop across repositories with actionable alerts.
+An agentic AI system for continuous secrets shielding that demonstrates an Observe → Think → Act loop across repositories with actionable alerts. Now featuring a comprehensive repository scanner with hybrid detection (regex + AI) and a modern React dashboard.
 
 ## 🏗️ Architecture
 
@@ -24,9 +24,13 @@ vaultsentinel/
 │  ├─ connectors/      # Data source integrations
 │  ├─ remediation/     # Action handlers for findings
 │  ├─ api/             # FastAPI service (REST + health/metrics)
-│  ├─ ui/              # Minimal dashboard
+│  ├─ ui/              # React dashboard with scanner interface
 │  ├─ cli/             # Local runner (optional)
 │  └─ sdk/             # External client SDK (future)
+├─ scanner/            # Repository scanning engine
+├─ detection/          # Hybrid detection (regex + MCP AI)
+├─ api/                # FastAPI routes and models
+├─ docs/               # Comprehensive documentation
 ├─ infra/
 │  ├─ docker/          # Dockerfiles
 │  ├─ helm/            # Helm chart (future)
@@ -123,15 +127,13 @@ python main.py --test-connections
 python main.py --api-only
 
 # In another terminal, start the frontend development server
-./scripts/dev-frontend.sh
-# Or manually:
-# cd packages/ui && npm install && npm run dev
+cd packages/ui && npm install && npm run dev
 ```
 
 #### Option B: Production Build
 ```bash
 # Build the TypeScript React frontend
-./scripts/build-frontend.sh
+cd packages/ui && npm run build
 
 # Start the full application (serves both API and frontend)
 python main.py --api-only
@@ -141,18 +143,76 @@ The dashboard will be available at:
 - **Development**: http://localhost:3000 (with hot reload)
 - **Production**: http://localhost:8000 (served by FastAPI)
 
-## 🔍 Detection Capabilities
+### 5. Using the Repository Scanner
 
-### Built-in Detectors
+#### **Quick Start - Scan a Repository:**
+1. Open http://localhost:3000
+2. Enter a GitHub repository URL (e.g., `https://github.com/owner/repo`)
+3. Click "Start Scan"
+4. Monitor progress in real-time
+5. View detailed HTML report when complete
+
+#### **API Usage:**
+```bash
+# Create a scan
+curl -X POST http://localhost:8000/api/scans \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repo_url": "https://github.com/owner/repo",
+    "branch": "main",
+    "mode": "full"
+  }'
+
+# Check scan status
+curl http://localhost:8000/api/scans/{scan_id}/status
+
+# Get HTML report
+curl http://localhost:8000/scans/{scan_id}/report
+```
+
+#### **MCP Integration:**
+```bash
+# Test MCP health
+curl http://localhost:8000/api/mcp/health
+
+# Classify text
+curl -X POST http://localhost:8000/api/mcp/classify \
+  -H "Content-Type: application/json" \
+  -d '{"text": "AKIA1234567890ABCDEF"}'
+```
+
+## 🔍 Repository Scanner
+
+### **New: Comprehensive Repository Scanner**
+
+VaultSentinel now includes a powerful repository scanner that can analyze any public GitHub repository for secrets and security risks:
+
+#### **Features:**
+- **🔍 Hybrid Detection**: Combines regex patterns with AI-powered classification
+- **📊 Risk Scoring**: Automated risk assessment with severity levels
+- **📋 Detailed Reports**: Human-readable HTML reports with remediation guidance
+- **🎯 Smart Filtering**: Context-aware detection with false positive reduction
+- **⚡ Fast Processing**: Optimized for large repositories with configurable limits
+
+#### **Detection Capabilities:**
 
 - **Regex Detector**: Pattern-based detection for common secrets
   - AWS Access Keys (`AKIA...`)
+  - AWS Secret Keys (generic patterns)
+  - Google API Keys (`AIza...`)
   - GitHub Tokens (`ghp_...`)
-  - Slack Webhooks (`https://hooks.slack.com/...`)
-  - JWT Tokens (`eyJ...`)
-  - RSA Private Keys (`-----BEGIN PRIVATE KEY-----`)
-  - Database URLs (`postgres://...`, `mysql://...`, `mongodb://...`)
-  - Bearer Tokens (`Bearer ...`)
+  - Slack Tokens (`xox...`)
+  - Private Keys (`-----BEGIN PRIVATE KEY-----`)
+  - JWT Secrets (generic patterns)
+  - Stripe Keys (`sk_live_...`)
+  - Twilio Tokens
+  - And more...
+
+- **AI Classification**: MCP-powered LLM analysis
+  - Context-aware verification
+  - Severity assessment
+  - Remediation guidance
+  - Confidence scoring
 
 - **Entropy Detector**: Statistical analysis for high-entropy strings
   - Configurable entropy threshold
@@ -182,20 +242,45 @@ The dashboard will be available at:
 ## 📊 API & Dashboard
 
 ### REST API Endpoints
+
+#### **Core API:**
 - `GET /healthz` - Health check with agent status
 - `GET /findings` - List findings with filters
 - `PATCH /findings/{id}` - Update finding status
 - `GET /metrics` - Comprehensive metrics and statistics
 - `GET /docs` - Interactive API documentation
 
+#### **Repository Scanner API:**
+- `POST /api/scans` - Create a new repository scan
+- `GET /api/scans/{id}/status` - Get scan progress and status
+- `GET /scans/{id}/report` - Get HTML scan report
+- `GET /api/findings` - List security findings with filters
+- `GET /api/findings/{id}` - Get detailed finding information
+- `POST /api/remediate` - Generate remediation patches
+- `GET /api/dashboard/stats` - Get dashboard statistics
+
+#### **MCP Integration API:**
+- `GET /api/mcp/health` - MCP server health check
+- `POST /api/mcp/chat` - Forward chat requests to MCP
+- `POST /api/mcp/classify` - Classify text using MCP AI
+
 ### TypeScript React Dashboard
 - **Modern UI**: Built with React 18, TypeScript, and Tailwind CSS
+- **Repository Scanner**: Interactive GitHub repository scanning interface
 - **Real-time Updates**: Live findings display with auto-refresh
 - **Advanced Filtering**: Status, type, repository, and search filters
 - **Interactive Management**: Update finding status and add notes
 - **Responsive Design**: Mobile-first design with desktop optimization
 - **Metrics Visualization**: Comprehensive statistics and charts
+- **MCP Integration**: Quick text classification and AI-powered analysis
 - **Settings Management**: Agent configuration and plugin status
+
+#### **Dashboard Pages:**
+- **Home** (`/`) - Repository scanning interface with progress tracking
+- **Dashboards** (`/dashboards`) - Security metrics, KPIs, and statistics
+- **Findings** (`/findings`) - Searchable and filterable findings table
+- **MCP Panel** (`/mcp`) - Quick text classification using AI
+- **Settings** (`/settings`) - Application configuration and health status
 
 ## 🧪 Testing
 
@@ -225,6 +310,21 @@ docker run -p 8000:8000 vaultsentinel
 ```
 
 ## 🔧 Configuration Reference
+
+### **Repository Scanner Configuration**
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MCP_BASE_URL` | MCP server URL | `http://localhost:9000` |
+| `MCP_AUTH_TYPE` | Authentication type | `api_key` |
+| `MCP_API_KEY` | MCP API key | Required |
+| `MCP_TIMEOUT_MS` | Request timeout | `20000` |
+| `MCP_RETRIES` | Number of retries | `2` |
+| `FRONTEND_ORIGIN` | Frontend CORS origin | `http://localhost:3000` |
+| `BACKEND_ORIGIN` | Backend CORS origin | `http://localhost:8000` |
+| `DEMO_MODE` | Enable demo mode | `false` |
+
+### **Legacy Agent Configuration**
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -323,6 +423,24 @@ python main.py --api-only
 curl -X POST http://localhost:8000/mcp/test \
   -H "Content-Type: application/json" \
   -d '{"text": "AKIAIOSFODNN7EXAMPLE", "context": {"file_path": "config/aws.py"}}'
+```
+
+### **Quick Start - Live MCP Server:**
+```bash
+# Start local MCP server
+cd mcp-server
+python server.py
+
+# In another terminal, start VaultSentinel
+cd ..
+export MCP_BASE_URL=http://localhost:9000
+export MCP_AUTH_TYPE=api_key
+export MCP_API_KEY=demo-mcp-key-12345
+export DEMO_MODE=false
+python main.py --api-only
+
+# Test live MCP integration
+python test_live_mcp.py
 ```
 
 ### **Production Configuration:**
@@ -516,6 +634,13 @@ python test_llm_classifiers.py
    # Run migration tests
    pytest tests/test_mcp_client.py tests/integration/test_mcp_integration.py
    ```
+
+## 📚 Documentation
+
+- **Repository Scanner**: [Scanner Runbook](docs/runbook_repository_scanner.md)
+- **MCP Integration**: [MCP Integration Guide](docs/runbook_mcp_integration.md)
+- **API Reference**: Available at `/docs` when running the server
+- **Frontend Guide**: React components and routing documentation
 
 ## 📄 License
 

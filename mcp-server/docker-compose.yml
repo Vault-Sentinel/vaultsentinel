@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  mcp-server:
+    build: .
+    ports:
+      - "9000:9000"
+    environment:
+      - MCP_API_KEY=demo-mcp-key-12345
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - mcp-network
+
+  # Optional: Add a simple monitoring service
+  mcp-monitor:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - mcp-server
+    networks:
+      - mcp-network
+
+networks:
+  mcp-network:
+    driver: bridge
+
+volumes:
+  mcp-logs:

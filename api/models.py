@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy import Column, String, Float, Integer, DateTime, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.dialects.sqlite import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from agent.config import settings
