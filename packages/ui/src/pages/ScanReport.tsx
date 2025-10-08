@@ -49,49 +49,41 @@ const ScanReport: React.FC = () => {
 
   const fetchScanReport = async () => {
     try {
-      const response = await fetch(`/scans/${scanId}/report`)
-      if (!response.ok) {
+      // First get the scan details
+      const scanResponse = await fetch(`/api/scans/${scanId}/details`)
+      if (!scanResponse.ok) {
+        throw new Error('Failed to fetch scan details')
+      }
+      const scanData = await scanResponse.json()
+      
+      // Then get the findings
+      const findingsResponse = await fetch(`/api/findings?scan_id=${scanId}`)
+      if (!findingsResponse.ok) {
+        throw new Error('Failed to fetch findings')
+      }
+      const findingsData = await findingsResponse.json()
+      
+      // Get the HTML report
+      const reportResponse = await fetch(`/api/scans/${scanId}/report`)
+      if (!reportResponse.ok) {
         throw new Error('Failed to fetch scan report')
       }
-      // For now, we'll create a mock report structure
-      // In a real implementation, you'd parse the HTML or get JSON data
+      
+      // Extract scan details from the HTML or use the API data
       setReport({
         scan: {
           id: scanId!,
-          repo_url: 'https://github.com/example/repo',
-          branch: 'main',
-          status: 'done',
-          risk_score: 75.5,
-          total_files: 150,
-          scanned_files: 150,
-          started_at: new Date().toISOString(),
-          finished_at: new Date().toISOString(),
-          duration_ms: 45000
+          repo_url: scanData.repo_url || 'Unknown',
+          branch: scanData.branch || 'main',
+          status: scanData.status || 'unknown',
+          risk_score: scanData.risk_score || 0,
+          total_files: scanData.total_files || 0,
+          scanned_files: scanData.scanned_files || 0,
+          started_at: scanData.started_at || new Date().toISOString(),
+          finished_at: scanData.finished_at || new Date().toISOString(),
+          duration_ms: scanData.duration_ms || 0
         },
-        findings: [
-          {
-            id: '1',
-            type: 'aws_access_key',
-            severity: 'HIGH',
-            confidence: 0.95,
-            file_path: 'config/aws.py',
-            start_line: 15,
-            end_line: 15,
-            description: 'AWS Access Key found in configuration file',
-            remediation_text: 'Remove the hardcoded AWS access key and use environment variables or IAM roles instead.'
-          },
-          {
-            id: '2',
-            type: 'github_token',
-            severity: 'CRITICAL',
-            confidence: 0.98,
-            file_path: '.env',
-            start_line: 3,
-            end_line: 3,
-            description: 'GitHub Personal Access Token found in environment file',
-            remediation_text: 'Remove the token from the .env file and use GitHub secrets or environment variables.'
-          }
-        ]
+        findings: findingsData.findings || []
       })
     } catch (err: any) {
       setError(err.message)

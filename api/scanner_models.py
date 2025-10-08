@@ -4,7 +4,6 @@ import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from sqlalchemy import Column, String, Integer, Float, DateTime, Text, Boolean, ForeignKey, Index
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -18,7 +17,7 @@ class Scan(Base):
     """Scan job model."""
     __tablename__ = "scans"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     repo_url = Column(String(500), nullable=False)
     branch = Column(String(100), default="main")
     mode = Column(String(20), default="full")  # full, diff
@@ -48,8 +47,8 @@ class Finding(Base):
     """Finding model."""
     __tablename__ = "findings"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    scan_id = Column(UUID(as_uuid=True), ForeignKey("scans.id"), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    scan_id = Column(String(36), ForeignKey("scans.id"), nullable=False)
     type = Column(String(50), nullable=False)  # aws_access_key, github_token, etc.
     severity = Column(String(20), nullable=False)  # CRITICAL, HIGH, MEDIUM, LOW
     confidence = Column(Float, nullable=False)
@@ -83,7 +82,7 @@ class AggregateDaily(Base):
     """Daily aggregates for dashboards."""
     __tablename__ = "aggregates_daily"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     day = Column(DateTime, nullable=False)
     repo = Column(String(200), nullable=False)
     findings_total = Column(Integer, default=0)
@@ -104,8 +103,8 @@ class Artifact(Base):
     """Scan artifacts (SARIF, raw outputs)."""
     __tablename__ = "artifacts"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    scan_id = Column(UUID(as_uuid=True), ForeignKey("scans.id"), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    scan_id = Column(String(36), ForeignKey("scans.id"), nullable=False)
     kind = Column(String(50), nullable=False)  # sarif, raw_gitleaks, raw_semgrep
     blob = Column(Text)  # compressed JSON/XML
     created_at = Column(DateTime, default=datetime.utcnow)

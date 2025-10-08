@@ -13,6 +13,7 @@ from sqlalchemy import desc, func
 from .scanner_models import Scan, Finding, AggregateDaily, get_db
 from scanner.scan_engine import ScanEngine
 from detection.mcp_classifier import MCPClassifier
+from .gcs_storage import gcs_storage
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +172,70 @@ async def get_scan_status(scan_id: str, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/scans/{scan_id}/details")
+async def get_scan_details(scan_id: str, db: Session = Depends(get_db)):
+    """Get full scan details."""
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    
+    return {
+        "id": scan.id,
+        "repo_url": scan.repo_url,
+        "branch": scan.branch,
+        "status": scan.status,
+        "risk_score": scan.risk_score,
+        "total_files": scan.total_files,
+        "scanned_files": scan.scanned_files,
+        "started_at": scan.started_at.isoformat() if scan.started_at else None,
+        "finished_at": scan.finished_at.isoformat() if scan.finished_at else None,
+        "duration_ms": scan.duration_ms,
+        "error_message": scan.error_message
+    }
+
+@router.get("/settings")
+async def get_settings():
+    """Get application settings and configuration."""
+    try:
+        from .config import settings
+        
+        return {
+            "version": "1.0.0",
+            "mode": "api_only",
+            "database": {
+                "type": "sqlite",
+                "url": settings.database_url.split("://")[-1] if settings.database_url else "vaultsentinel.db"
+            },
+            "mcp": {
+                "enabled": True,
+                "base_url": settings.mcp_base_url,
+                "api_key_configured": bool(settings.mcp_api_key)
+            },
+            "gcs": {
+                "enabled": settings.gcs_enabled,
+                "bucket": settings.gcs_bucket_name if settings.gcs_enabled else None
+            },
+            "api": {
+                "host": settings.api_host,
+                "port": settings.api_port,
+                "cors_origins": settings.cors_origins
+            },
+            "scanning": {
+                "max_files": 2000,
+                "max_bytes_per_file": 200000,
+                "include_patterns": ["**/*.py", "**/*.js", "**/*.env", "**/*.yml", "**/*.yaml", "**/*.json"],
+                "exclude_patterns": ["**/node_modules/**", "**/dist/**", "**/.git/**", "**/__pycache__/**", "**/*.pyc", "**/*.pyo"]
+            }
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "version": "1.0.0",
+            "mode": "api_only"
+        }
+
+
 @router.get("/scans/{scan_id}/report")
 async def get_scan_report(scan_id: str, db: Session = Depends(get_db)):
     """Get scan report as HTML."""
@@ -182,12 +247,21 @@ async def get_scan_report(scan_id: str, db: Session = Depends(get_db)):
     if scan.status != "done":
         raise HTTPException(status_code=400, detail="Scan not completed yet")
     
-    # Get findings
+    # Try to get report from GCS first
+    report_url = await gcs_storage.get_html_report_url(scan_id)
+    if report_url:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=report_url)
+    
+    # Fallback: generate report from database
     findings = db.query(Finding).filter(Finding.scan_id == scan_id).all()
     
     # Render HTML report
     from .report_renderer import render_scan_report
     html_content = render_scan_report(scan, findings)
+    
+    # Store in GCS for future use
+    await gcs_storage.store_html_report(scan_id, html_content)
     
     return HTMLResponse(content=html_content)
 
@@ -393,3 +467,74 @@ def generate_pr_body(findings: List[Finding]) -> str:
     body += "4. Consider implementing secret scanning in CI/CD pipeline\n"
     
     return body
+
+
+# Dashboard Routes
+@router.get("/dashboard/stats")
+async def get_dashboard_stats(db: Session = Depends(get_db)):
+    """Get dashboard statistics from database (GCS disabled for local development)."""
+    try:
+        # Get recent scans from database
+        recent_scans = db.query(Scan).order_by(desc(Scan.started_at)).limit(50).all()
+        
+        # Calculate statistics
+        total_scans = len(recent_scans)
+        total_findings = db.query(Finding).count()
+        
+        # Severity breakdown from database
+        severity_breakdown = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+        severity_counts = db.query(
+            Finding.severity, 
+            func.count(Finding.id)
+        ).group_by(Finding.severity).all()
+        
+        for severity, count in severity_counts:
+            if severity in severity_breakdown:
+                severity_breakdown[severity] = count
+        
+        # Top secret types from database
+        secret_types = {}
+        type_counts = db.query(
+            Finding.type,
+            func.count(Finding.id)
+        ).group_by(Finding.type).all()
+        
+        for finding_type, count in type_counts:
+            secret_types[finding_type] = count
+        
+        # Sort by count
+        top_secret_types = dict(sorted(secret_types.items(), key=lambda x: x[1], reverse=True)[:5])
+        
+        # Format recent scans for response
+        recent_scans_data = []
+        for scan in recent_scans[:10]:
+            recent_scans_data.append({
+                "scan_id": scan.id,
+                "repo_url": scan.repo_url,
+                "branch": scan.branch,
+                "status": scan.status,
+                "risk_score": scan.risk_score,
+                "total_files": scan.total_files,
+                "scanned_files": scan.scanned_files,
+                "findings_count": db.query(Finding).filter(Finding.scan_id == scan.id).count(),
+                "started_at": scan.started_at.isoformat() if scan.started_at else None,
+                "finished_at": scan.finished_at.isoformat() if scan.finished_at else None
+            })
+        
+        return {
+            "total_scans": total_scans,
+            "total_findings": total_findings,
+            "severity_breakdown": severity_breakdown,
+            "top_secret_types": top_secret_types,
+            "recent_scans": recent_scans_data
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get dashboard stats: {e}")
+        return {
+            "total_scans": 0,
+            "total_findings": 0,
+            "severity_breakdown": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0},
+            "top_secret_types": {},
+            "recent_scans": []
+        }

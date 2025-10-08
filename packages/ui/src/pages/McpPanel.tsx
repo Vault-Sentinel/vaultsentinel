@@ -57,7 +57,9 @@ const McpPanel: React.FC = () => {
         // Add assistant response if available
         const assistantMessage: MCPChatMessage = {
           role: 'assistant',
-          content: JSON.stringify(response.result, null, 2)
+          content: Array.isArray(response.result) 
+            ? response.result.map((item: any) => item.text || JSON.stringify(item)).join('\n')
+            : JSON.stringify(response.result, null, 2)
         }
         setChatMessages(prev => [...prev, assistantMessage])
       }

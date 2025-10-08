@@ -15,11 +15,10 @@ import uuid
 import logging
 from typing import List, Optional, Dict, Any
 
-from .models import Finding, ScanRun, get_db
 from .config import settings, get_redacted_config
 from .clients import get_mcp_client
 from .scanner_routes import router as scanner_router
-from .scanner_models import init_db
+from .scanner_models import init_db, get_db
 
 def create_app():
     """Create and configure the FastAPI application."""
