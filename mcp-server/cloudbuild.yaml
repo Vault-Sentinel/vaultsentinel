@@ -1,0 +1,48 @@
+# Cloud Build configuration for Google Cloud Run deployment
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/vaultsentinel-mcp:$COMMIT_SHA', '.']
+  
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/vaultsentinel-mcp:$COMMIT_SHA']
+  
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'vaultsentinel-mcp'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/vaultsentinel-mcp:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '9000'
+      - '--memory'
+      - '1Gi'
+      - '--cpu'
+      - '1'
+      - '--max-instances'
+      - '10'
+      - '--min-instances'
+      - '0'
+      - '--concurrency'
+      - '100'
+      - '--timeout'
+      - '300'
+      - '--set-env-vars'
+      - 'MCP_API_KEY=${_MCP_API_KEY},USE_REAL_LLM=true,DEFAULT_LLM_PROVIDER=gemini,MAX_TOKENS=100,TEMPERATURE=0.1,ENABLE_CACHING=true'
+
+# Substitution variables (set these in Cloud Build trigger)
+substitutions:
+  _MCP_API_KEY: 'demo-mcp-key-12345'
+
+# Store images in Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/vaultsentinel-mcp:$COMMIT_SHA'

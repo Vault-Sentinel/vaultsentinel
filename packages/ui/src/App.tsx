@@ -1,21 +1,25 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
+import Home from './pages/Home'
+import Dashboards from './pages/Dashboards'
 import Findings from './pages/Findings'
+import ScanReport from './pages/ScanReport'
 import Metrics from './pages/Metrics'
 import Settings from './pages/Settings'
-import LLMConfig from './pages/LLMConfig'
+import McpPanel from './pages/McpPanel'
 
 function App() {
   return (
     <Router>
       <Layout>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/dashboards" element={<Dashboards />} />
           <Route path="/findings" element={<Findings />} />
+          <Route path="/scans/:scanId/report" element={<ScanReport />} />
           <Route path="/metrics" element={<Metrics />} />
+          <Route path="/mcp" element={<McpPanel />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/settings/llm" element={<LLMConfig />} />
         </Routes>
       </Layout>
     </Router>

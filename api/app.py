@@ -3,16 +3,27 @@
 import time
 from datetime import datetime
 from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from pydantic import BaseModel
+import time
+import uuid
+import logging
+from typing import List, Optional, Dict, Any
 
-from api.models import Finding, ScanRun, get_db
-from agent.config import settings, get_redacted_config
-from api.clients import get_mcp_client
+from .models import Finding, ScanRun, get_db
+from .config import settings, get_redacted_config
+from .clients import get_mcp_client
+from .scanner_routes import router as scanner_router
+from .scanner_models import init_db
+
+def create_app():
+    """Create and configure the FastAPI application."""
+    return app
 
 app = FastAPI(
     title="VaultSentinel",
@@ -20,8 +31,26 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:8080"],  # Will be configurable
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=["*"],
+)
+
+# Include scanner routes
+app.include_router(scanner_router)
+
+# Initialize scanner database
+init_db()
+
 # Mount static files
 app.mount("/static", StaticFiles(directory="ui/static"), name="static")
+
+# Setup logging
+logger = logging.getLogger(__name__)
 
 # Startup time for uptime calculation
 startup_time = time.time()
@@ -37,6 +66,33 @@ class MCPTestRequest(BaseModel):
     """Model for MCP test request."""
     text: str
     context: dict = {}
+
+
+class MCPChatMessage(BaseModel):
+    """Model for MCP chat message."""
+    role: str  # "user", "assistant", "system"
+    content: str
+
+
+class MCPChatRequest(BaseModel):
+    """Model for MCP chat request."""
+    messages: List[MCPChatMessage]
+    provider: Optional[str] = "gemini"  # "gemini" or "openai"
+
+
+class MCPHealthResponse(BaseModel):
+    """Model for MCP health response."""
+    status: str
+    details: Optional[Dict[str, Any]] = None
+    request_id: Optional[str] = None
+
+
+class MCPChatResponse(BaseModel):
+    """Model for MCP chat response."""
+    status: str
+    result: Optional[Any] = None  # Can be dict, list, or any other type
+    request_id: Optional[str] = None
+    mcp_meta: Optional[Dict[str, Any]] = None
 
 
 @app.get("/healthz")
@@ -214,6 +270,97 @@ async def get_metrics(db: Session = Depends(get_db)):
         "mtta_seconds": mtta,
         "total_findings": db.query(Finding).count()
     }
+
+
+# MCP Proxy Routes
+@app.get("/api/mcp/health", response_model=MCPHealthResponse)
+async def mcp_health(request: Request):
+    """MCP health check proxy endpoint."""
+    request_id = str(uuid.uuid4())
+    start_time = time.time()
+    
+    try:
+        # Get MCP client
+        mcp_client = get_mcp_client()
+        
+        # Call MCP health endpoint
+        response = await mcp_client._request("GET", "/health")
+        
+        latency_ms = int((time.time() - start_time) * 1000)
+        
+        # Log request
+        logger.info(
+            "MCP health check - status: %s, latency: %dms, request_id: %s",
+            "ok", latency_ms, request_id
+        )
+        
+        return MCPHealthResponse(
+            status="ok",
+            details=response,
+            request_id=request_id
+        )
+        
+    except Exception as e:
+        latency_ms = int((time.time() - start_time) * 1000)
+        logger.error(
+            "MCP health check failed - error: %s, latency: %dms, request_id: %s",
+            str(e), latency_ms, request_id
+        )
+        
+        return MCPHealthResponse(
+            status="error",
+            details={"error": str(e)},
+            request_id=request_id
+        )
+
+
+@app.post("/api/mcp/chat", response_model=MCPChatResponse)
+async def mcp_chat(request: MCPChatRequest, http_request: Request):
+    """MCP chat proxy endpoint."""
+    request_id = str(uuid.uuid4())
+    start_time = time.time()
+    
+    try:
+        # Get MCP client
+        mcp_client = get_mcp_client()
+        
+        # Convert to MCP format
+        conversation = {
+            "messages": [{"role": msg.role, "content": msg.content} for msg in request.messages],
+            "provider": request.provider
+        }
+        
+        # Call MCP chat endpoint
+        response = await mcp_client.chat(conversation)
+        
+        latency_ms = int((time.time() - start_time) * 1000)
+        
+        # Log request (redacted)
+        logger.info(
+            "MCP chat request - status: %s, latency: %dms, request_id: %s",
+            response.get("status", "unknown"), latency_ms, request_id
+        )
+        
+        return MCPChatResponse(
+            status=response.get("status", "error"),
+            result=response.get("result"),
+            request_id=response.get("request_id", request_id),
+            mcp_meta=response.get("mcp_meta", {})
+        )
+        
+    except Exception as e:
+        latency_ms = int((time.time() - start_time) * 1000)
+        logger.error(
+            "MCP chat request failed - error: %s, latency: %dms, request_id: %s",
+            str(e), latency_ms, request_id
+        )
+        
+        return MCPChatResponse(
+            status="error",
+            result={"error": str(e)},
+            request_id=request_id,
+            mcp_meta={"error": str(e)}
+        )
 
 
 @app.get("/", response_class=HTMLResponse)

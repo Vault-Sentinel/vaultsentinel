@@ -59,16 +59,16 @@ class VaultSentinelService:
         self.running = False
         self.db_session.close()
     
-    def run_once(self) -> Dict:
+    async def run_once(self) -> Dict:
         """Run a single scan cycle.
         
         Returns:
             Dictionary with scan results
         """
         logger.info("Running single scan cycle...")
-        return self._run_scan_cycle()
+        return await self._run_scan_cycle()
     
-    def _run_scan_cycle(self) -> Dict:
+    async def _run_scan_cycle(self) -> Dict:
         """Run a single scan cycle.
         
         Returns:
@@ -121,7 +121,7 @@ class VaultSentinelService:
                     })
                 
                 # Process commit with thinker
-                findings = self.thinker.process_commit(commit.sha, file_changes_dict)
+                findings = await self.thinker.process_commit(commit.sha, file_changes_dict)
                 total_findings.extend(findings)
                 total_commits += 1
                 

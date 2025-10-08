@@ -8,14 +8,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agent.service import VaultSentinelService
 
-def main():
+async def main():
     """Run a single scan cycle."""
     print("Running VaultSentinel scan...")
     
     service = VaultSentinelService()
     
     try:
-        results = service.run_once()
+        results = await service.run_once()
         print(f"Scan completed successfully!")
         print(f"Results: {results}")
     except Exception as e:
@@ -25,4 +25,5 @@ def main():
     return 0
 
 if __name__ == "__main__":
-    exit(main())
+    import asyncio
+    exit(asyncio.run(main()))

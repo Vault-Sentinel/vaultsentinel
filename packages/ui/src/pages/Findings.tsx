@@ -1,674 +1,326 @@
 import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { 
-  Search, 
-  RefreshCw, 
   AlertTriangle, 
-  CheckCircle, 
-  Clock,
-  Eye,
+  Search, 
+  ChevronDown, 
   Shield,
-  Key,
-  Database,
-  Globe,
-  Lock,
-  AlertCircle,
-  Info,
-  ExternalLink,
-  Copy,
-  RotateCcw
+  Clock,
+  FileText
 } from 'lucide-react'
-import { getFindings, updateFinding } from '../services/api'
-import { Finding } from '../types'
-import { format } from 'date-fns'
+
+interface Finding {
+  id: string
+  type: string
+  severity: string
+  confidence: number
+  repo: string
+  file_path: string
+  start_line: number
+  end_line: number
+  description: string
+  remediation_text: string
+  created_at: string
+}
 
 const Findings: React.FC = () => {
   const [findings, setFindings] = useState<Finding[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null)
   const [filters, setFilters] = useState({
-    status: '',
-    kind: '',
     repo: '',
+    severity: '',
+    type: '',
     search: ''
-  })
-  const [pagination, setPagination] = useState({
-    limit: 20,
-    offset: 0,
-    total: 0
   })
 
   useEffect(() => {
-    loadFindings()
-  }, [filters, pagination.offset])
+    fetchFindings()
+  }, [filters])
 
-  const loadFindings = async () => {
+  const fetchFindings = async () => {
     try {
-      setLoading(true)
-      const response = await getFindings({
-        ...filters,
-        limit: pagination.limit,
-        offset: pagination.offset
-      })
-      
-      setFindings((response as any).findings || [])
-      setPagination(prev => ({ ...prev, total: response.total || 0 }))
-      setError(null)
-    } catch (err) {
-      setError('Failed to load findings')
-      console.error('Findings error:', err)
+      const params = new URLSearchParams()
+      if (filters.repo) params.append('repo', filters.repo)
+      if (filters.severity) params.append('severity', filters.severity)
+      if (filters.type) params.append('finding_type', filters.type)
+
+      const response = await fetch(`/api/findings?${params.toString()}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch findings')
+      }
+      const data = await response.json()
+      setFindings(data)
+    } catch (err: any) {
+      setError(err.message)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleStatusUpdate = async (id: string, status: string) => {
-    try {
-      await updateFinding(id, { status })
-      loadFindings()
-    } catch (err) {
-      console.error('Failed to update finding:', err)
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'CRITICAL': return 'bg-red-100 text-red-800'
+      case 'HIGH': return 'bg-orange-100 text-orange-800'
+      case 'MEDIUM': return 'bg-yellow-100 text-yellow-800'
+      case 'LOW': return 'bg-green-100 text-green-800'
+      default: return 'bg-gray-100 text-gray-800'
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'NEW':
-        return 'text-danger-600 bg-danger-100'
-      case 'ACKNOWLEDGED':
-        return 'text-warning-600 bg-warning-100'
-      case 'RESOLVED':
-        return 'text-success-600 bg-success-100'
-      case 'FALSE_POSITIVE':
-        return 'text-gray-600 bg-gray-100'
-      default:
-        return 'text-gray-600 bg-gray-100'
+  const getSeverityIcon = (severity: string) => {
+    switch (severity) {
+      case 'CRITICAL': return '🔴'
+      case 'HIGH': return '🟠'
+      case 'MEDIUM': return '🟡'
+      case 'LOW': return '🟢'
+      default: return '⚪'
     }
   }
 
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return 'text-danger-600'
-    if (confidence >= 0.5) return 'text-warning-600'
-    return 'text-success-600'
+  const filteredFindings = findings.filter(finding => {
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase()
+      return (
+        finding.type.toLowerCase().includes(searchLower) ||
+        finding.description.toLowerCase().includes(searchLower) ||
+        finding.file_path.toLowerCase().includes(searchLower) ||
+        finding.repo.toLowerCase().includes(searchLower)
+      )
+    }
+    return true
+  })
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    )
   }
 
-  // Group findings by repository
-  const groupFindingsByRepo = (findings: Finding[]) => {
-    const grouped = findings.reduce((acc, finding) => {
-      const repo = finding.repo
-      if (!acc[repo]) {
-        acc[repo] = []
-      }
-      acc[repo].push(finding)
-      return acc
-    }, {} as Record<string, Finding[]>)
-    
-    return Object.entries(grouped).map(([repo, repoFindings]) => ({
-      repo,
-      findings: repoFindings,
-      count: repoFindings.length
-    }))
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'NEW':
-        return <AlertTriangle className="h-4 w-4" />
-      case 'ACKNOWLEDGED':
-        return <Clock className="h-4 w-4" />
-      case 'RESOLVED':
-        return <CheckCircle className="h-4 w-4" />
-      default:
-        return <Eye className="h-4 w-4" />
-    }
-  }
-
-  const getSecretTypeInfo = (kind: string) => {
-    const typeInfo = {
-      'aws_access_key': {
-        icon: <Key className="h-5 w-5" />,
-        title: 'AWS Access Key',
-        description: 'Amazon Web Services access key for API authentication',
-        risk: 'HIGH',
-        impact: 'Full AWS account access, potential data breach, service disruption',
-        remediation: [
-          'Immediately rotate the access key in AWS IAM console',
-          'Review CloudTrail logs for unauthorized usage',
-          'Implement least-privilege access policies',
-          'Enable MFA for all AWS accounts'
-        ],
-        prevention: [
-          'Use IAM roles instead of access keys when possible',
-          'Implement key rotation policies',
-          'Monitor access key usage with CloudTrail',
-          'Use AWS Secrets Manager for key storage'
-        ]
-      },
-      'aws_secret_key': {
-        icon: <Lock className="h-5 w-5" />,
-        title: 'AWS Secret Key',
-        description: 'Amazon Web Services secret access key (paired with access key)',
-        risk: 'CRITICAL',
-        impact: 'Full AWS account compromise, data exfiltration, service takeover',
-        remediation: [
-          'Immediately rotate the secret key in AWS IAM',
-          'Revoke all sessions using this key',
-          'Audit all AWS resources for unauthorized changes',
-          'Notify security team and stakeholders'
-        ],
-        prevention: [
-          'Never commit secrets to version control',
-          'Use environment variables or secret managers',
-          'Implement pre-commit hooks to detect secrets',
-          'Regular security training for developers'
-        ]
-      },
-      'github_token': {
-        icon: <Globe className="h-5 w-5" />,
-        title: 'GitHub Personal Access Token',
-        description: 'GitHub API token for repository access and automation',
-        risk: 'HIGH',
-        impact: 'Repository access, code modification, CI/CD pipeline compromise',
-        remediation: [
-          'Revoke the token in GitHub Settings > Developer settings',
-          'Review repository access logs',
-          'Check for unauthorized commits or pull requests',
-          'Rotate any dependent service tokens'
-        ],
-        prevention: [
-          'Use fine-grained personal access tokens',
-          'Implement token expiration policies',
-          'Use GitHub Apps instead of personal tokens',
-          'Regular token audit and rotation'
-        ]
-      },
-      'slack_webhook': {
-        icon: <Globe className="h-5 w-5" />,
-        title: 'Slack Webhook URL',
-        description: 'Slack incoming webhook for posting messages to channels',
-        risk: 'MEDIUM',
-        impact: 'Spam messages, channel disruption, potential data leakage',
-        remediation: [
-          'Regenerate the webhook URL in Slack app settings',
-          'Review message history for unauthorized posts',
-          'Update all applications using this webhook',
-          'Implement webhook authentication'
-        ],
-        prevention: [
-          'Use Slack apps with proper permissions',
-          'Implement webhook validation',
-          'Regular webhook audit and cleanup',
-          'Use environment variables for webhook URLs'
-        ]
-      },
-      'jwt_token': {
-        icon: <Shield className="h-5 w-5" />,
-        title: 'JWT Token',
-        description: 'JSON Web Token for authentication and authorization',
-        risk: 'HIGH',
-        impact: 'Authentication bypass, privilege escalation, session hijacking',
-        remediation: [
-          'Invalidate the JWT token immediately',
-          'Force re-authentication for all users',
-          'Review JWT signing key security',
-          'Implement token blacklisting'
-        ],
-        prevention: [
-          'Use short-lived JWT tokens',
-          'Implement proper token validation',
-          'Use secure signing algorithms (RS256)',
-          'Regular token rotation'
-        ]
-      },
-      'rsa_private_key': {
-        icon: <Key className="h-5 w-5" />,
-        title: 'RSA Private Key',
-        description: 'RSA private key for cryptographic operations',
-        risk: 'CRITICAL',
-        impact: 'Encryption compromise, digital signature forgery, secure communication breach',
-        remediation: [
-          'Immediately revoke the associated certificate',
-          'Generate new key pair and certificate',
-          'Update all systems using this key',
-          'Audit all encrypted data and signatures'
-        ],
-        prevention: [
-          'Use hardware security modules (HSM)',
-          'Implement key rotation policies',
-          'Store keys in secure key management systems',
-          'Never commit private keys to version control'
-        ]
-      },
-      'database_url': {
-        icon: <Database className="h-5 w-5" />,
-        title: 'Database Connection String',
-        description: 'Database connection URL with credentials',
-        risk: 'HIGH',
-        impact: 'Database access, data breach, data manipulation',
-        remediation: [
-          'Change database passwords immediately',
-          'Review database access logs',
-          'Check for unauthorized data access',
-          'Update all application configurations'
-        ],
-        prevention: [
-          'Use connection string encryption',
-          'Implement database access controls',
-          'Use environment variables for credentials',
-          'Regular database security audits'
-        ]
-      },
-      'bearer_token': {
-        icon: <Shield className="h-5 w-5" />,
-        title: 'Bearer Token',
-        description: 'OAuth bearer token for API authentication',
-        risk: 'MEDIUM',
-        impact: 'API access, data retrieval, service impersonation',
-        remediation: [
-          'Revoke the bearer token',
-          'Review API access logs',
-          'Check for unauthorized API calls',
-          'Update client applications'
-        ],
-        prevention: [
-          'Use short-lived tokens',
-          'Implement token refresh mechanisms',
-          'Monitor token usage patterns',
-          'Use secure token storage'
-        ]
-      },
-      'high_entropy_string': {
-        icon: <AlertCircle className="h-5 w-5" />,
-        title: 'High Entropy String',
-        description: 'Random-looking string that might be a secret',
-        risk: 'LOW',
-        impact: 'Potential secret exposure, security risk if confirmed',
-        remediation: [
-          'Verify if this is actually a secret',
-          'Check if it\'s a false positive',
-          'If confirmed, follow appropriate remediation',
-          'Update detection rules if needed'
-        ],
-        prevention: [
-          'Implement proper secret management',
-          'Use secure random generators',
-          'Regular security training',
-          'Code review for secret handling'
-        ]
-      }
-    }
-    
-    return typeInfo[kind as keyof typeof typeInfo] || {
-      icon: <AlertTriangle className="h-5 w-5" />,
-      title: 'Unknown Secret Type',
-      description: 'Unidentified secret type',
-      risk: 'UNKNOWN',
-      impact: 'Unknown security impact',
-      remediation: ['Investigate the secret type', 'Determine appropriate remediation'],
-      prevention: ['Implement general security practices']
-    }
-  }
-
-  const getRiskColor = (risk: string) => {
-    switch (risk) {
-      case 'CRITICAL': return 'text-red-600 bg-red-100'
-      case 'HIGH': return 'text-orange-600 bg-orange-100'
-      case 'MEDIUM': return 'text-yellow-600 bg-yellow-100'
-      case 'LOW': return 'text-blue-600 bg-blue-100'
-      default: return 'text-gray-600 bg-gray-100'
-    }
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="flex items-center">
+          <AlertTriangle className="w-5 h-5 text-red-600 mr-2" />
+          <span className="text-red-800">{error}</span>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Findings</h1>
-        <p className="mt-2 text-gray-600">
-          Manage and review detected secrets
-        </p>
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-gray-900">Security Findings</h1>
+        <Link
+          to="/"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+        >
+          New Scan
+        </Link>
       </div>
 
       {/* Filters */}
-      <div className="card p-6 mb-6">
+      <div className="bg-white rounded-lg shadow-sm border p-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Status
-            </label>
-            <select
-              value={filters.status}
-              onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-            >
-              <option value="">All Status</option>
-              <option value="NEW">New</option>
-              <option value="ACKNOWLEDGED">Acknowledged</option>
-              <option value="RESOLVED">Resolved</option>
-              <option value="FALSE_POSITIVE">False Positive</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Secret Type
-            </label>
-            <select
-              value={filters.kind}
-              onChange={(e) => setFilters(prev => ({ ...prev, kind: e.target.value }))}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-            >
-              <option value="">All Types</option>
-              <option value="aws_access_key">AWS Access Key</option>
-              <option value="aws_secret_key">AWS Secret Key</option>
-              <option value="github_token">GitHub Token</option>
-              <option value="slack_webhook">Slack Webhook</option>
-              <option value="jwt_token">JWT Token</option>
-              <option value="rsa_private_key">RSA Private Key</option>
-              <option value="database_url">Database URL</option>
-              <option value="bearer_token">Bearer Token</option>
-              <option value="high_entropy_string">High Entropy String</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Repository
-            </label>
-            <input
-              type="text"
-              value={filters.repo}
-              onChange={(e) => setFilters(prev => ({ ...prev, repo: e.target.value }))}
-              placeholder="Filter by repository"
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Search
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 value={filters.search}
-                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                onChange={(e) => setFilters({...filters, search: e.target.value})}
                 placeholder="Search findings..."
-                className="w-full pl-10 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
-        </div>
-        
-        <div className="mt-4 flex justify-between items-center">
-          <button
-            onClick={loadFindings}
-            className="btn btn-primary"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </button>
-          
-          <div className="text-sm text-gray-500">
-            Showing {findings.length} of {pagination.total} findings
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Repository</label>
+            <input
+              type="text"
+              value={filters.repo}
+              onChange={(e) => setFilters({...filters, repo: e.target.value})}
+              placeholder="Filter by repo..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Severity</label>
+            <select
+              value={filters.severity}
+              onChange={(e) => setFilters({...filters, severity: e.target.value})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">All Severities</option>
+              <option value="CRITICAL">Critical</option>
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+            <input
+              type="text"
+              value={filters.type}
+              onChange={(e) => setFilters({...filters, type: e.target.value})}
+              placeholder="Filter by type..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
         </div>
       </div>
 
-      {/* Findings List */}
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      {/* Findings Table */}
+      <div className="bg-white rounded-lg shadow-sm border">
+        <div className="px-6 py-4 border-b">
+          <h3 className="text-lg font-semibold text-gray-900">
+            {filteredFindings.length} Finding{filteredFindings.length !== 1 ? 's' : ''}
+          </h3>
         </div>
-      ) : error ? (
-        <div className="bg-danger-50 border border-danger-200 rounded-md p-4">
-          <div className="flex">
-            <AlertTriangle className="h-5 w-5 text-danger-400" />
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-danger-800">Error</h3>
-              <p className="mt-1 text-sm text-danger-700">{error}</p>
+        
+        {filteredFindings.length === 0 ? (
+          <div className="px-6 py-12 text-center">
+            <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No findings found</h3>
+            <p className="text-gray-500">Try adjusting your filters or start a new scan.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-200">
+            {filteredFindings.map((finding) => (
+              <div
+                key={finding.id}
+                className="px-6 py-4 hover:bg-gray-50 cursor-pointer"
+                onClick={() => setSelectedFinding(finding)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-shrink-0">
+                      <span className="text-2xl">{getSeverityIcon(finding.severity)}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2">
+                        <h4 className="text-sm font-medium text-gray-900 truncate">
+                          {finding.type.replace('_', ' ').toUpperCase()}
+                        </h4>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(finding.severity)}`}>
+                          {finding.severity}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {Math.round(finding.confidence * 100)}% confidence
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">{finding.description}</p>
+                      <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                        <span className="flex items-center">
+                          <FileText className="w-3 h-3 mr-1" />
+                          {finding.file_path}:{finding.start_line}
+                        </span>
+                        <span className="flex items-center">
+                          <Shield className="w-3 h-3 mr-1" />
+                          {finding.repo}
+                        </span>
+                        <span className="flex items-center">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {new Date(finding.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                      View Details
+                    </button>
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Finding Detail Modal */}
+      {selectedFinding && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Finding Details</h3>
+                <button
+                  onClick={() => setSelectedFinding(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            
+            <div className="px-6 py-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Type</label>
+                  <p className="text-sm text-gray-900">{selectedFinding.type.replace('_', ' ').toUpperCase()}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Severity</label>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(selectedFinding.severity)}`}>
+                    {selectedFinding.severity}
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Confidence</label>
+                  <p className="text-sm text-gray-900">{Math.round(selectedFinding.confidence * 100)}%</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Repository</label>
+                  <p className="text-sm text-gray-900">{selectedFinding.repo}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">File</label>
+                  <p className="text-sm text-gray-900">{selectedFinding.file_path}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Line</label>
+                  <p className="text-sm text-gray-900">{selectedFinding.start_line}-{selectedFinding.end_line}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Description</label>
+                <p className="text-sm text-gray-900 mt-1">{selectedFinding.description}</p>
+              </div>
+
+              {selectedFinding.remediation_text && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Remediation</label>
+                  <div className="mt-1 p-3 bg-blue-50 rounded-md">
+                    <p className="text-sm text-blue-800">{selectedFinding.remediation_text}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <button
+                  onClick={() => setSelectedFinding(null)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Close
+                </button>
+                <button className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                  Generate Patch
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      ) : findings.length === 0 ? (
-        <div className="card p-12 text-center">
-          <AlertTriangle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No findings found</h3>
-          <p className="text-gray-500">Try adjusting your filters or check back later.</p>
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {groupFindingsByRepo(findings).map((repoGroup) => (
-            <div key={repoGroup.repo} className="space-y-4">
-              {/* Repository Header */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-primary-100 rounded-lg">
-                      <Database className="h-5 w-5 text-primary-600" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-semibold text-gray-900">{repoGroup.repo}</h2>
-                      <p className="text-sm text-gray-600">{repoGroup.count} security findings</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="badge bg-primary-100 text-primary-800">
-                      {repoGroup.count} findings
-                    </span>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Repository Findings */}
-              <div className="space-y-4">
-                {repoGroup.findings.map((finding) => {
-            const secretInfo = getSecretTypeInfo(finding.kind)
-            return (
-              <div key={finding.id} className="card p-6 border-l-4 border-l-primary-500">
-                {/* Header Section */}
-                <div className="flex items-start justify-between mb-6">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-primary-100 rounded-lg">
-                      {secretInfo.icon}
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900">
-                        {secretInfo.title}
-                      </h3>
-                      <p className="text-sm text-gray-600">{secretInfo.description}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <span className={`badge ${getStatusColor(finding.status)}`}>
-                      {getStatusIcon(finding.status)}
-                      <span className="ml-1">{finding.status}</span>
-                    </span>
-                    <span className={`badge ${getRiskColor(secretInfo.risk)}`}>
-                      {secretInfo.risk} RISK
-                    </span>
-                    <span className={`text-sm font-medium ${getConfidenceColor(finding.confidence)}`}>
-                      {Math.round(finding.confidence * 100)}% confidence
-                    </span>
-                  </div>
-                </div>
-
-                {/* Risk Assessment */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div className="flex items-center mb-2">
-                      <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
-                      <h4 className="font-semibold text-red-800">Security Impact</h4>
-                    </div>
-                    <p className="text-sm text-red-700">{secretInfo.impact}</p>
-                  </div>
-                  
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center mb-2">
-                      <Info className="h-5 w-5 text-blue-600 mr-2" />
-                      <h4 className="font-semibold text-blue-800">Detection Details</h4>
-                    </div>
-                    <div className="space-y-1 text-sm text-blue-700">
-                      <p><span className="font-medium">File:</span> {finding.file_path}</p>
-                      <p><span className="font-medium">Lines:</span> {finding.line_start}-{finding.line_end}</p>
-                      <p><span className="font-medium">Repository:</span> {finding.repo}</p>
-                      <p><span className="font-medium">Commit:</span> {finding.commit_sha.substring(0, 8)}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Secret Preview */}
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-gray-800">Secret Preview</h4>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(finding.preview_masked)}
-                      className="flex items-center text-sm text-gray-600 hover:text-gray-800"
-                    >
-                      <Copy className="h-4 w-4 mr-1" />
-                      Copy
-                    </button>
-                  </div>
-                  <code className="text-sm font-mono bg-white p-2 rounded border block">
-                    {finding.preview_masked}
-                  </code>
-                </div>
-
-                {/* Remediation Steps */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                    <div className="flex items-center mb-3">
-                      <RotateCcw className="h-5 w-5 text-orange-600 mr-2" />
-                      <h4 className="font-semibold text-orange-800">Immediate Remediation</h4>
-                    </div>
-                    <ul className="space-y-2 text-sm text-orange-700">
-                      {secretInfo.remediation.map((step: string, index: number) => (
-                        <li key={index} className="flex items-start">
-                          <span className="inline-block w-2 h-2 bg-orange-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                          {step}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center mb-3">
-                      <Shield className="h-5 w-5 text-green-600 mr-2" />
-                      <h4 className="font-semibold text-green-800">Prevention Measures</h4>
-                    </div>
-                    <ul className="space-y-2 text-sm text-green-700">
-                      {secretInfo.prevention.map((step: string, index: number) => (
-                        <li key={index} className="flex items-start">
-                          <span className="inline-block w-2 h-2 bg-green-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                          {step}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-
-                {/* MCP Integration Info */}
-                {finding.notes && finding.notes.includes('MCP classification') && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <div className="flex items-center mb-3">
-                      <div className="p-2 bg-blue-100 rounded-lg mr-3">
-                        <Database className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <h4 className="font-semibold text-blue-800">MCP Classification</h4>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium text-blue-600">Request ID:</span>
-                        <p className="text-blue-900 font-mono text-xs">
-                          {finding.notes.match(/Request ID: ([a-zA-Z0-9-]+)/)?.[1] || 'N/A'}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="font-medium text-blue-600">Classification Method:</span>
-                        <p className="text-blue-900">MCP (Model Context Protocol)</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Metadata */}
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                  <h4 className="font-semibold text-gray-800 mb-3">Detection Metadata</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-600">First Detected:</span>
-                      <p className="text-gray-900">{format(new Date(finding.first_seen_at), 'MMM d, yyyy HH:mm')}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600">Last Seen:</span>
-                      <p className="text-gray-900">{format(new Date(finding.last_seen_at), 'MMM d, yyyy HH:mm')}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600">Fingerprint:</span>
-                      <p className="text-gray-900 font-mono text-xs">{finding.fingerprint.substring(0, 16)}...</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Notes */}
-                {finding.notes && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                    <h4 className="font-semibold text-yellow-800 mb-2">Notes</h4>
-                    <p className="text-sm text-yellow-700">{finding.notes}</p>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => window.open(`https://github.com/${finding.repo}/blob/main/${finding.file_path}#L${finding.line_start}`, '_blank')}
-                      className="btn btn-secondary flex items-center"
-                    >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      View in GitHub
-                    </button>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(finding.file_path)}
-                      className="btn btn-secondary flex items-center"
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy File Path
-                    </button>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    {finding.status === 'NEW' && (
-                      <button
-                        onClick={() => handleStatusUpdate(finding.id, 'ACKNOWLEDGED')}
-                        className="btn btn-primary"
-                      >
-                        Acknowledge
-                      </button>
-                    )}
-                    {finding.status === 'ACKNOWLEDGED' && (
-                      <button
-                        onClick={() => handleStatusUpdate(finding.id, 'RESOLVED')}
-                        className="btn btn-success"
-                      >
-                        Mark Resolved
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleStatusUpdate(finding.id, 'FALSE_POSITIVE')}
-                      className="btn btn-secondary"
-                    >
-                      False Positive
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )
-                })}
-              </div>
-            </div>
-          ))}
         </div>
       )}
     </div>

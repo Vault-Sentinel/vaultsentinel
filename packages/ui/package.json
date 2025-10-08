@@ -2,6 +2,7 @@
   "name": "vaultsentinel-ui",
   "version": "1.0.0",
   "description": "VaultSentinel Dashboard - TypeScript React Frontend",
+  "type": "module",
   "private": true,
   "scripts": {
     "dev": "vite",

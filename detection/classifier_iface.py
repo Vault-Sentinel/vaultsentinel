@@ -17,7 +17,7 @@ class SecretClassifier(ABC):
     """Abstract base class for secret classifiers."""
     
     @abstractmethod
-    def classify(self, text: str, context: Dict) -> ClassificationResult:
+    async def classify(self, text: str, context: Dict) -> ClassificationResult:
         """Classify a potential secret.
         
         Args:
@@ -57,7 +57,7 @@ class RuleBasedClassifier(SecretClassifier):
             ]
         }
     
-    def classify(self, text: str, context: Dict) -> ClassificationResult:
+    async def classify(self, text: str, context: Dict) -> ClassificationResult:
         """Classify using rule-based approach."""
         secret_kind = context.get("secret_kind", "unknown")
         file_path = context.get("file_path", "")
@@ -100,12 +100,12 @@ class MLClassifier(SecretClassifier):
         self.model = None
         # TODO: Load ML model when implemented
     
-    def classify(self, text: str, context: Dict) -> ClassificationResult:
+    async def classify(self, text: str, context: Dict) -> ClassificationResult:
         """Classify using ML model."""
         # TODO: Implement ML-based classification
         # For now, fall back to rule-based
         rule_classifier = RuleBasedClassifier()
-        return rule_classifier.classify(text, context)
+        return await rule_classifier.classify(text, context)
 
 
 class LLMClassifier(SecretClassifier):
@@ -121,33 +121,32 @@ class LLMClassifier(SecretClassifier):
         
         # Import MCP client
         try:
+            import sys
+            from pathlib import Path
+            # Add root directory to path to find api.clients
+            root_dir = Path(__file__).parent.parent
+            if str(root_dir) not in sys.path:
+                sys.path.insert(0, str(root_dir))
             from api.clients import get_mcp_client
             self.mcp_client = get_mcp_client()
         except ImportError as e:
             print(f"Warning: MCP client not available: {e}")
             print("Falling back to rule-based classifier")
     
-    def classify(self, text: str, context: Dict) -> ClassificationResult:
+    async def classify(self, text: str, context: Dict) -> ClassificationResult:
         """Classify using LLM via MCP client."""
         if not self.mcp_client:
             # Fall back to rule-based if no MCP client
             rule_classifier = RuleBasedClassifier()
-            return rule_classifier.classify(text, context)
+            return await rule_classifier.classify(text, context)
         
         try:
-            import asyncio
-            # Run async MCP call in sync context
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                return loop.run_until_complete(self._classify_with_mcp(text, context))
-            finally:
-                loop.close()
+            return await self._classify_with_mcp(text, context)
         except Exception as e:
             print(f"LLM classification error: {e}")
             # Fall back to rule-based
             rule_classifier = RuleBasedClassifier()
-            return rule_classifier.classify(text, context)
+            return await rule_classifier.classify(text, context)
     
     async def _classify_with_mcp(self, text: str, context: Dict) -> ClassificationResult:
         """Classify using MCP client."""
@@ -180,7 +179,7 @@ class LLMClassifier(SecretClassifier):
         else:
             # MCP request failed, fall back to rule-based
             rule_classifier = RuleBasedClassifier()
-            return rule_classifier.classify(text, context)
+            return await rule_classifier.classify(text, context)
     
     def _build_prompt(self, text: str, context: Dict) -> str:
         """Build prompt for LLM classification."""
