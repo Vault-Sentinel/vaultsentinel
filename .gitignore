@@ -120,13 +120,17 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
+*.env
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+.env.local
+docker-compose.local.yml
+production.env
+.env.deploy
 
 # Spyder project settings
 .spyderproject
@@ -193,3 +197,5 @@ Thumbs.db
 test-secrets-repo/
 populate_test_data.py
 demo/
+.env.local
+docker-compose.local.yml

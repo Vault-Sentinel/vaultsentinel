@@ -8,6 +8,7 @@ import {
   Copy,
   GitBranch
 } from 'lucide-react'
+import api from '../services/api'
 
 interface ScanReport {
   scan: {
@@ -50,26 +51,17 @@ const ScanReport: React.FC = () => {
   const fetchScanReport = async () => {
     try {
       // First get the scan details
-      const scanResponse = await fetch(`/api/scans/${scanId}/details`)
-      if (!scanResponse.ok) {
-        throw new Error('Failed to fetch scan details')
-      }
-      const scanData = await scanResponse.json()
+      const scanResponse = await api.get(`/api/scans/${scanId}/details`)
+      const scanData = scanResponse.data
       
       // Then get the findings
-      const findingsResponse = await fetch(`/api/findings?scan_id=${scanId}`)
-      if (!findingsResponse.ok) {
-        throw new Error('Failed to fetch findings')
-      }
-      const findingsData = await findingsResponse.json()
+      const findingsResponse = await api.get(`/api/findings?scan_id=${scanId}`)
+      const findingsData = findingsResponse.data
       
-      // Get the HTML report
-      const reportResponse = await fetch(`/api/scans/${scanId}/report`)
-      if (!reportResponse.ok) {
-        throw new Error('Failed to fetch scan report')
-      }
+      // Get the HTML report (for future use if needed)
+      // const reportResponse = await api.get(`/api/scans/${scanId}/report`)
       
-      // Extract scan details from the HTML or use the API data
+      // Extract scan details from the API data
       setReport({
         scan: {
           id: scanId!,

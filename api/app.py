@@ -1,6 +1,8 @@
 """FastAPI application for VaultSentinel."""
 
 import time
+import os
+import json
 from datetime import datetime
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, Query, Request
@@ -18,7 +20,8 @@ from typing import List, Optional, Dict, Any
 from .config import settings, get_redacted_config
 from .clients import get_mcp_client
 from .scanner_routes import router as scanner_router
-from .scanner_models import init_db, get_db
+from .scanner_models import Finding, Scan
+from .scanner_models import get_db
 
 def create_app():
     """Create and configure the FastAPI application."""
@@ -30,20 +33,44 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Parse CORS origins from environment
+def parse_cors_origins():
+    """Parse CORS origins from environment variables."""
+    origins = []
+    
+    # Check for CORS_ORIGINS (comma-separated list)
+    cors_origins = os.getenv("CORS_ORIGINS")
+    if cors_origins:
+        # Split by comma and clean up whitespace
+        origins = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
+        print(f"Parsed CORS_ORIGINS: {origins}")
+    
+    # Check for FRONTEND_ORIGIN (single origin)
+    frontend_origin = os.getenv("FRONTEND_ORIGIN")
+    if frontend_origin and frontend_origin not in origins:
+        origins.append(frontend_origin)
+        print(f"Added FRONTEND_ORIGIN: {frontend_origin}")
+    
+    # Default fallback
+    if not origins:
+        origins = ["https://vaultsentinel-frontend-fgain323oq-uw.a.run.app"]
+        print("Using default CORS origins")
+    
+    print(f"Final CORS origins: {origins}")
+    return origins
+
 # Add CORS middleware
+cors_origins = parse_cors_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8080"],  # Will be configurable
+    allow_origins=cors_origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
 # Include scanner routes
 app.include_router(scanner_router)
-
-# Initialize scanner database
-init_db()
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="ui/static"), name="static")
@@ -97,13 +124,7 @@ class MCPChatResponse(BaseModel):
 @app.get("/healthz")
 async def health_check():
     """Health check endpoint."""
-    uptime = time.time() - startup_time
-    return {
-        "status": "ok",
-        "version": "1.0.0",
-        "uptime": uptime,
-        "config": get_redacted_config()
-    }
+    return {"status": "ok"}
 
 
 @app.post("/mcp/test")
@@ -168,7 +189,7 @@ Respond with JSON:
         }
 
 
-@app.get("/findings")
+@app.get("/api/findings")
 async def get_findings(
     status: Optional[str] = Query(None, description="Filter by status"),
     kind: Optional[str] = Query(None, description="Filter by secret kind"),
@@ -205,7 +226,7 @@ async def get_findings(
     }
 
 
-@app.patch("/findings/{finding_id}")
+@app.patch("/api/findings/{finding_id}")
 async def update_finding(
     finding_id: str,
     update: FindingUpdate,
@@ -230,7 +251,22 @@ async def update_finding(
     return {"message": "Finding updated successfully"}
 
 
-@app.get("/metrics")
+@app.get("/api/settings")
+async def get_settings():
+    """Get application settings."""
+    return {
+        "mcp_enabled": True,
+        "gcs_enabled": True,
+        "version": "1.0.0",
+        "features": {
+            "scanning": True,
+            "mcp_classification": True,
+            "gcs_storage": True
+        }
+    }
+
+
+@app.get("/api/metrics")
 async def get_metrics(db: Session = Depends(get_db)):
     """Get basic metrics."""
     # Count by status
@@ -246,7 +282,7 @@ async def get_metrics(db: Session = Depends(get_db)):
     ).group_by(Finding.secret_kind).all()
     
     # Last scan time
-    last_scan = db.query(ScanRun).order_by(desc(ScanRun.started_at)).first()
+    last_scan = db.query(Scan).order_by(desc(Scan.started_at)).first()
     
     # MTTA (Mean Time To Acknowledge) - simplified
     acknowledged_findings = db.query(Finding).filter(

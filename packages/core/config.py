@@ -130,14 +130,7 @@ class Config:
         """Validate configuration and return list of errors."""
         errors = []
         
-        if not self.github_repo:
-            errors.append("GITHUB_REPO is required")
-        
-        if not self.github_token:
-            errors.append("GITHUB_TOKEN is required")
-        
-        if not self.slack_webhook_url:
-            errors.append("SLACK_WEBHOOK_URL is required")
+        # Removed GITHUB_REPO, GITHUB_TOKEN, and SLACK_WEBHOOK_URL validation as we've pivoted to on-demand scanning
         
         if self.remediation_enabled and not (self.aws_access_key_id and self.aws_secret_access_key):
             errors.append("AWS credentials required when remediation is enabled")

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Shield, Search, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react'
+import api from '../services/api'
 
 const Home: React.FC = () => {
   const navigate = useNavigate()
@@ -24,28 +25,18 @@ const Home: React.FC = () => {
     setError(null)
 
     try {
-      const response = await fetch('/api/scans', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          repo_url: repoUrl,
-          branch: branch,
-          mode: 'full',
-          include: ['**/*.py', '**/*.js', '**/*.env', '**/*.yml', '**/*.yaml', '**/*.json'],
-          exclude: ['**/node_modules/**', '**/dist/**', '.git/**', '**/__pycache__/**'],
-          max_files: 2000,
-          max_bytes_per_file: 200000,
-          timeout_sec: 120
-        })
+      const response = await api.post('/api/scans', {
+        repo_url: repoUrl,
+        branch: branch,
+        mode: 'full',
+        include: ['**/*.py', '**/*.js', '**/*.env', '**/*.yml', '**/*.yaml', '**/*.json'],
+        exclude: ['**/node_modules/**', '**/dist/**', '.git/**', '**/__pycache__/**'],
+        max_files: 2000,
+        max_bytes_per_file: 200000,
+        timeout_sec: 120
       })
 
-      if (!response.ok) {
-        throw new Error('Failed to start scan')
-      }
-
-      const data = await response.json()
+      const data = response.data
       
       // Start polling for scan status
       pollScanStatus(data.scan_id)
@@ -58,8 +49,8 @@ const Home: React.FC = () => {
   const pollScanStatus = async (scanId: string) => {
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`/api/scans/${scanId}/status`)
-        const data = await response.json()
+        const response = await api.get(`/api/scans/${scanId}/status`)
+        const data = response.data
 
         if (data.status === 'done') {
           clearInterval(pollInterval)

@@ -8,7 +8,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_API_URL || 'https://vaultsentinel-backend-fgain323oq-uw.a.run.app',
         changeOrigin: true
       }
     }

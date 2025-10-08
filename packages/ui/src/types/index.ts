@@ -26,24 +26,6 @@ export interface ScanRun {
   commit_range: string | null
 }
 
-export interface Metrics {
-  findings: {
-    counts_by_status: Record<string, number>
-    counts_by_kind: Record<string, number>
-    total_findings: number
-  }
-  last_scan_at: string | null
-  agent_status: {
-    running: boolean
-    config: Record<string, any>
-    last_scan: string | null
-    registered_plugins: {
-      detectors: string[]
-      connectors: string[]
-      remediation_handlers: string[]
-    }
-  }
-}
 
 export interface HealthStatus {
   status: string
