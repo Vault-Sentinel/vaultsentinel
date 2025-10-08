@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { MCPHealthResponse, MCPChatResponse, MCPChatMessage } from '../types'
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || ''
 
 const mcpApi = axios.create({
   baseURL: API_BASE_URL,

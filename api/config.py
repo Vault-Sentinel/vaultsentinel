@@ -34,10 +34,16 @@ class APISettings(BaseSettings):
     frontend_origin: str = Field(default="http://localhost:3000", env="FRONTEND_ORIGIN")
     backend_origin: str = Field(default="http://localhost:8000", env="BACKEND_ORIGIN")
     node_env: str = Field(default="development", env="NODE_ENV")
+    cors_origins: List[str] = Field(default=["http://localhost:3000", "http://localhost:8080"], env="CORS_ORIGINS")
     
     # API Configuration
     api_host: str = Field(default="0.0.0.0", env="API_HOST")
     api_port: int = Field(default=8000, env="API_PORT")
+    
+    # Google Cloud Storage
+    gcs_bucket_name: str = Field(default="vaultsentinel-scans", env="GCS_BUCKET_NAME")
+    gcs_project_id: Optional[str] = Field(default=None, env="GCS_PROJECT_ID")
+    gcs_enabled: bool = Field(default=False, env="GCS_ENABLED")
     
     # Logging
     log_level: str = Field(default="INFO", env="LOG_LEVEL")

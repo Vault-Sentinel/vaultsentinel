@@ -15,6 +15,7 @@ import re
 from api.scanner_models import Scan, Finding, get_db
 from detection.regex_detectors import RegexDetector, create_evidence_hash
 from detection.mcp_classifier import MCPClassifier
+from api.gcs_storage import gcs_storage
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,32 @@ class ScanEngine:
             # Calculate risk score
             risk_score = self._calculate_risk_score(all_findings)
             
-            # Persist findings
+            # Store findings in GCS
+            await gcs_storage.store_findings(scan_id, all_findings)
+            
+            # Store scan metadata in GCS
+            scan_metadata = {
+                "scan_id": scan_id,
+                "repo_url": scan_config["repo_url"],
+                "branch": scan_config.get("branch", "main"),
+                "status": "done",
+                "risk_score": risk_score,
+                "total_files": len(files_to_scan),
+                "scanned_files": len(files_to_scan),
+                "findings_count": len(all_findings),
+                "duration_ms": int((datetime.utcnow() - scan.started_at).total_seconds() * 1000),
+                "engines": {
+                    "regex": True,
+                    "mcp": True,
+                    "semgrep": False
+                }
+            }
+            await gcs_storage.store_scan_metadata(scan_id, scan_metadata)
+            
+            # Store repository files in GCS for future reference
+            await gcs_storage.store_repository_files(scan_id, repo_path)
+            
+            # Persist findings to database (for API queries)
             await self._persist_findings(scan_id, all_findings, db)
             
             # Update scan completion
@@ -79,6 +105,7 @@ class ScanEngine:
             
             # Cleanup
             await self._cleanup_repo(repo_path)
+            await gcs_storage.cleanup_temp_files(scan_id)
             
             return {
                 "status": "done",
@@ -160,14 +187,11 @@ class ScanEngine:
         repo_path_obj = Path(repo_path)
         
         for include_pattern in include_patterns:
-            for file_path in repo_path_obj.rglob("*"):
+            # Use pathlib.glob() for proper pattern matching
+            for file_path in repo_path_obj.glob(include_pattern):
                 if file_path.is_file():
                     relative_path = file_path.relative_to(repo_path_obj)
                     file_path_str = str(relative_path)
-                    
-                    # Check if file matches include pattern
-                    if not fnmatch.fnmatch(file_path_str, include_pattern):
-                        continue
                     
                     # Check if file matches exclude pattern
                     excluded = False

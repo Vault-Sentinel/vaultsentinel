@@ -14,6 +14,12 @@ export const getHealth = async (): Promise<HealthStatus> => {
   return response.data
 }
 
+// Settings
+export const getSettings = async (): Promise<any> => {
+  const response = await api.get('/api/settings')
+  return response.data
+}
+
 // Findings
 export const getFindings = async (params?: {
   status?: string
