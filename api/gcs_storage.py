@@ -27,7 +27,8 @@ class GCSStorageService:
             return
         
         try:
-            self.client = storage.Client()
+            project_id = os.getenv("GCS_PROJECT_ID", "vault-sentinel")
+            self.client = storage.Client(project=project_id)
             self.bucket = self.client.bucket(self.bucket_name)
             
             # Ensure bucket exists

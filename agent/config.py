@@ -13,15 +13,15 @@ class Settings(BaseSettings):
     """Application settings."""
     
     # GitHub Configuration
-    github_repo: str = Field(..., env="GITHUB_REPO")
-    github_token: str = Field(..., env="GITHUB_TOKEN")
+    github_repo: Optional[str] = Field(default=None, env="GITHUB_REPO")
+    github_token: Optional[str] = Field(default=None, env="GITHUB_TOKEN")
     
     # Scanning Configuration
     poll_interval_seconds: int = Field(default=120, env="POLL_INTERVAL_SECONDS")
     scan_depth_commits: int = Field(default=10, env="SCAN_DEPTH_COMMITS")
     
     # Slack Configuration
-    slack_webhook_url: str = Field(..., env="SLACK_WEBHOOK_URL")
+    slack_webhook_url: Optional[str] = Field(default=None, env="SLACK_WEBHOOK_URL")
     
     # Remediation Configuration
     remediation_enabled: bool = Field(default=False, env="REMEDIATION_ENABLED")

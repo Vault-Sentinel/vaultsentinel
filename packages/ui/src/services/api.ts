@@ -1,7 +1,8 @@
 import axios from 'axios'
-import { Finding, Metrics, HealthStatus, ApiResponse } from '../types'
+import { Finding, HealthStatus, ApiResponse } from '../types'
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'
+// Get API URL from environment or use default
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://vaultsentinel-backend-fgain323oq-uw.a.run.app'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -41,11 +42,6 @@ export const updateFinding = async (
   return response.data
 }
 
-// Metrics
-export const getMetrics = async (): Promise<Metrics> => {
-  const response = await api.get('/api/metrics')
-  return response.data
-}
 
 // Error handling
 api.interceptors.response.use(

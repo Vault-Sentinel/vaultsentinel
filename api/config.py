@@ -1,9 +1,10 @@
 """Configuration management for VaultSentinel API."""
 
 import os
+import json
 from typing import List, Optional
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, field_validator
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -34,7 +35,20 @@ class APISettings(BaseSettings):
     frontend_origin: str = Field(default="http://localhost:3000", env="FRONTEND_ORIGIN")
     backend_origin: str = Field(default="http://localhost:8000", env="BACKEND_ORIGIN")
     node_env: str = Field(default="development", env="NODE_ENV")
-    cors_origins: List[str] = Field(default=["http://localhost:3000", "http://localhost:8080"], env="CORS_ORIGINS")
+    cors_origins: str = Field(default="http://localhost:3000,http://localhost:8080", env="CORS_ORIGINS")
+    
+    @field_validator('cors_origins', mode='after')
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """Parse CORS origins from comma-separated string or JSON array."""
+        if isinstance(v, str):
+            # Try to parse as JSON first
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                # If not JSON, split by comma
+                return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
     
     # API Configuration
     api_host: str = Field(default="0.0.0.0", env="API_HOST")

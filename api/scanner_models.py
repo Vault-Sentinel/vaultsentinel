@@ -52,7 +52,7 @@ class Finding(Base):
     type = Column(String(50), nullable=False)  # aws_access_key, github_token, etc.
     severity = Column(String(20), nullable=False)  # CRITICAL, HIGH, MEDIUM, LOW
     confidence = Column(Float, nullable=False)
-    confidence = Column(Float, nullable=False)
+    # status = Column(String(20), default="NEW")  # NEW, ACKNOWLEDGED, RESOLVED, FALSE_POSITIVE - temporarily disabled for production compatibility
     repo = Column(String(200), nullable=False)
     file_path = Column(String(500), nullable=False)
     start_line = Column(Integer, nullable=False)

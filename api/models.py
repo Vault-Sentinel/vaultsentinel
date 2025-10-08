@@ -7,7 +7,7 @@ from sqlalchemy import Column, String, Float, Integer, DateTime, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
-from agent.config import settings
+# Removed agent.config import - using direct database URL
 
 Base = declarative_base()
 
@@ -67,7 +67,9 @@ class ScanRun(Base):
 
 
 # Database setup
-engine = create_engine(settings.database_url)
+import os
+database_url = os.getenv("DATABASE_URL", "sqlite:///./vaultsentinel.db")
+engine = create_engine(database_url)
 Base.metadata.create_all(bind=engine)
 
 

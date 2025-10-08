@@ -4,7 +4,6 @@ import Home from './pages/Home'
 import Dashboards from './pages/Dashboards'
 import Findings from './pages/Findings'
 import ScanReport from './pages/ScanReport'
-import Metrics from './pages/Metrics'
 import Settings from './pages/Settings'
 import McpPanel from './pages/McpPanel'
 
@@ -17,7 +16,6 @@ function App() {
           <Route path="/dashboards" element={<Dashboards />} />
           <Route path="/findings" element={<Findings />} />
           <Route path="/scans/:scanId/report" element={<ScanReport />} />
-          <Route path="/metrics" element={<Metrics />} />
           <Route path="/mcp" element={<McpPanel />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>

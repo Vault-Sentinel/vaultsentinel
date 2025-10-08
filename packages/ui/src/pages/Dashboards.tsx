@@ -8,6 +8,7 @@ import {
   GitBranch,
   Activity
 } from 'lucide-react'
+import api from '../services/api'
 
 interface DashboardStats {
   total_scans: number
@@ -15,7 +16,7 @@ interface DashboardStats {
   severity_breakdown: Record<string, number>
   top_secret_types: Record<string, number>
   recent_scans: Array<{
-    id: string
+    scan_id: string
     repo_url: string
     status: string
     risk_score: number
@@ -34,12 +35,8 @@ const Dashboards: React.FC = () => {
 
   const fetchDashboardStats = async () => {
     try {
-      const response = await fetch('/api/dashboard/stats')
-      if (!response.ok) {
-        throw new Error('Failed to fetch dashboard stats')
-      }
-      const data = await response.json()
-      setStats(data)
+      const response = await api.get('/api/dashboard/stats')
+      setStats(response.data)
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -192,7 +189,7 @@ const Dashboards: React.FC = () => {
         </div>
         <div className="divide-y divide-gray-200">
           {stats.recent_scans.map((scan) => (
-            <div key={scan.id} className="px-6 py-4">
+            <div key={scan.scan_id} className="px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <GitBranch className="w-5 h-5 text-gray-400 mr-3" />
@@ -218,7 +215,7 @@ const Dashboards: React.FC = () => {
                     </span>
                   )}
                   <Link
-                    to={`/scans/${scan.id}/report`}
+                    to={`/scans/${scan.scan_id}/report`}
                     className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                   >
                     View Report

@@ -8,6 +8,7 @@ import {
   Clock,
   FileText
 } from 'lucide-react'
+import api from '../services/api'
 
 interface Finding {
   id: string
@@ -46,12 +47,8 @@ const Findings: React.FC = () => {
       if (filters.severity) params.append('severity', filters.severity)
       if (filters.type) params.append('finding_type', filters.type)
 
-      const response = await fetch(`/api/findings?${params.toString()}`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch findings')
-      }
-      const data = await response.json()
-      setFindings(data)
+      const response = await api.get(`/api/findings?${params.toString()}`)
+      setFindings(response.data)
     } catch (err: any) {
       setError(err.message)
     } finally {

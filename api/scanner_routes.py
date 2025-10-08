@@ -382,44 +382,6 @@ async def classify_text(request: ClassifyRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Dashboard Routes
-@router.get("/dashboard/stats")
-async def get_dashboard_stats(db: Session = Depends(get_db)):
-    """Get dashboard statistics."""
-    total_scans = db.query(Scan).count()
-    total_findings = db.query(Finding).count()
-    
-    # Severity breakdown
-    severity_counts = db.query(
-        Finding.severity,
-        func.count(Finding.id)
-    ).group_by(Finding.severity).all()
-    
-    # Top secret types
-    type_counts = db.query(
-        Finding.type,
-        func.count(Finding.id)
-    ).group_by(Finding.type).order_by(desc(func.count(Finding.id))).limit(10).all()
-    
-    # Recent scans
-    recent_scans = db.query(Scan).order_by(desc(Scan.started_at)).limit(5).all()
-    
-    return {
-        "total_scans": total_scans,
-        "total_findings": total_findings,
-        "severity_breakdown": dict(severity_counts),
-        "top_secret_types": dict(type_counts),
-        "recent_scans": [
-            {
-                "id": str(scan.id),
-                "repo_url": scan.repo_url,
-                "status": scan.status,
-                "risk_score": scan.risk_score,
-                "started_at": scan.started_at.isoformat() if scan.started_at else None
-            }
-            for scan in recent_scans
-        ]
-    }
 
 
 # Background Tasks
