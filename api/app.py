@@ -72,8 +72,10 @@ app.add_middleware(
 # Include scanner routes
 app.include_router(scanner_router)
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="ui/static"), name="static")
+# Mount static files (only if directory exists)
+import os
+if os.path.exists("ui/static"):
+    app.mount("/static", StaticFiles(directory="ui/static"), name="static")
 
 # Setup logging
 logger = logging.getLogger(__name__)
