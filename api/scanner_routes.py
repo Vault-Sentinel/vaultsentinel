@@ -387,11 +387,26 @@ async def classify_text(request: ClassifyRequest):
 # Background Tasks
 async def execute_scan_task(scan_id: str, scan_config: Dict[str, Any]):
     """Execute scan in background."""
+    db = next(get_db())
     try:
         engine = ScanEngine()
         await engine.execute_scan(scan_id, scan_config)
     except Exception as e:
         logger.error(f"Background scan task failed: {e}")
+        
+        # Update scan status and error message in database
+        try:
+            scan = db.query(Scan).filter(Scan.id == scan_id).first()
+            if scan:
+                scan.status = "error"
+                scan.error_message = str(e)
+                scan.finished_at = datetime.utcnow()
+                db.commit()
+                logger.info(f"Updated scan {scan_id} with error status")
+        except Exception as db_error:
+            logger.error(f"Failed to update scan error status: {db_error}")
+    finally:
+        db.close()
 
 
 # Helper Functions

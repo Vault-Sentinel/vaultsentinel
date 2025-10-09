@@ -50,6 +50,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+tests/
 
 # Translations
 *.mo
@@ -199,3 +200,4 @@ populate_test_data.py
 demo/
 .env.local
 docker-compose.local.yml
+nginx.conf

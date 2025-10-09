@@ -60,10 +60,15 @@ const Home: React.FC = () => {
         } else if (data.status === 'error') {
           clearInterval(pollInterval)
           setIsScanning(false)
-          setError(data.message || 'Scan failed')
+          // Display more specific error messages
+          const errorMessage = data.error_message || data.message || 'Scan failed'
+          setError(errorMessage)
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error polling scan status:', err)
+        clearInterval(pollInterval)
+        setIsScanning(false)
+        setError('Failed to check scan status. Please try again.')
       }
     }, 2000) // Poll every 2 seconds
   }
@@ -131,9 +136,17 @@ const Home: React.FC = () => {
 
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <AlertTriangle className="w-5 h-5 text-red-600 mr-2" />
-                    <span className="text-red-800">{error}</span>
+                  <div className="flex items-start">
+                    <AlertTriangle className="w-5 h-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" />
+                    <div className="text-red-800">
+                      <p className="font-medium">Scan Failed</p>
+                      <p className="text-sm mt-1">{error}</p>
+                      {error.includes('private') && (
+                        <p className="text-sm mt-2 text-red-700">
+                          💡 <strong>Tip:</strong> VaultSentinel can only scan public repositories. Make sure the repository is public or try a different repository.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

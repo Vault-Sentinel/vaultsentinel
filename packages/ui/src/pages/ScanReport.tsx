@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { 
   AlertTriangle, 
@@ -9,6 +9,8 @@ import {
   GitBranch
 } from 'lucide-react'
 import api from '../services/api'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 
 interface ScanReport {
   scan: {
@@ -41,6 +43,8 @@ const ScanReport: React.FC = () => {
   const [report, setReport] = useState<ScanReport | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+  const reportRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (scanId) {
@@ -108,6 +112,184 @@ const ScanReport: React.FC = () => {
     return 'Low Risk'
   }
 
+  const downloadPDF = async () => {
+    if (!reportRef.current || !report) return
+    
+    setIsGeneratingPDF(true)
+    try {
+      // Create a temporary container for the PDF content
+      const element = reportRef.current
+      
+      // Configure html2canvas options
+      const canvas = await html2canvas(element, {
+        scale: 2, // Higher quality
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+      })
+      
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      
+      // Calculate dimensions to fit the content
+      const imgWidth = 210 // A4 width in mm
+      const pageHeight = 295 // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      let heightLeft = imgHeight
+      
+      let position = 0
+      
+      // Add the image to the PDF
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+      heightLeft -= pageHeight
+      
+      // Add new pages if content is longer than one page
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+        heightLeft -= pageHeight
+      }
+      
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().split('T')[0]
+      const repoName = report.scan.repo_url.split('/').pop() || 'scan'
+      const filename = `vaultsentinel-${repoName}-${timestamp}.pdf`
+      
+      // Download the PDF
+      pdf.save(filename)
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      alert('Failed to generate PDF. Please try again.')
+    } finally {
+      setIsGeneratingPDF(false)
+    }
+  }
+
+  const downloadSARIF = () => {
+    if (!report) return
+
+    // Generate SARIF format
+    const sarifData = {
+      "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+      "version": "2.1.0",
+      "runs": [
+        {
+          "tool": {
+            "driver": {
+              "name": "VaultSentinel",
+              "version": "1.0.0",
+              "informationUri": "https://github.com/Vault-Sentinel/vaultsentinel",
+              "rules": [
+                {
+                  "id": "aws-access-key",
+                  "name": "AWS Access Key",
+                  "shortDescription": {
+                    "text": "AWS Access Key detected"
+                  },
+                  "fullDescription": {
+                    "text": "An AWS Access Key (AKIA...) has been detected in the codebase"
+                  },
+                  "helpUri": "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html"
+                },
+                {
+                  "id": "aws-secret-key",
+                  "name": "AWS Secret Key",
+                  "shortDescription": {
+                    "text": "AWS Secret Key detected"
+                  },
+                  "fullDescription": {
+                    "text": "An AWS Secret Key has been detected in the codebase"
+                  },
+                  "helpUri": "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html"
+                },
+                {
+                  "id": "github-token",
+                  "name": "GitHub Token",
+                  "shortDescription": {
+                    "text": "GitHub Token detected"
+                  },
+                  "fullDescription": {
+                    "text": "A GitHub Personal Access Token has been detected in the codebase"
+                  },
+                  "helpUri": "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token"
+                },
+                {
+                  "id": "jwt-secret",
+                  "name": "JWT Secret",
+                  "shortDescription": {
+                    "text": "JWT Secret detected"
+                  },
+                  "fullDescription": {
+                    "text": "A JWT secret has been detected in the codebase"
+                  },
+                  "helpUri": "https://jwt.io/introduction"
+                }
+              ]
+            }
+          },
+          "results": report.findings.map((finding) => ({
+            "ruleId": finding.type.replace('_', '-'),
+            "level": finding.severity === 'CRITICAL' ? 'error' : 
+                   finding.severity === 'HIGH' ? 'error' : 
+                   finding.severity === 'MEDIUM' ? 'warning' : 'note',
+            "message": {
+              "text": finding.description
+            },
+            "locations": [
+              {
+                "physicalLocation": {
+                  "artifactLocation": {
+                    "uri": finding.file_path,
+                    "uriBaseId": "ROOT"
+                  },
+                  "region": {
+                    "startLine": finding.start_line,
+                    "endLine": finding.end_line
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "confidence": finding.confidence,
+              "severity": finding.severity,
+              "remediation": finding.remediation_text
+            }
+          })),
+          "artifacts": [
+            {
+              "location": {
+                "uri": report.scan.repo_url,
+                "uriBaseId": "ROOT"
+              },
+              "description": {
+                "text": `Repository: ${report.scan.repo_url} (${report.scan.branch})`
+              }
+            }
+          ]
+        }
+      ]
+    }
+
+    // Create and download the SARIF file
+    const blob = new Blob([JSON.stringify(sarifData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    
+    const timestamp = new Date().toISOString().split('T')[0]
+    const repoName = report.scan.repo_url.split('/').pop() || 'scan'
+    const filename = `vaultsentinel-${repoName}-${timestamp}.sarif`
+    
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -137,7 +319,7 @@ const ScanReport: React.FC = () => {
   }, {} as Record<string, number>)
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-6">
+    <div ref={reportRef} className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -151,9 +333,13 @@ const ScanReport: React.FC = () => {
           >
             Back to Dashboard
           </Link>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+          <button 
+            onClick={downloadPDF}
+            disabled={isGeneratingPDF}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Download className="w-4 h-4 mr-2 inline" />
-            Download PDF
+            {isGeneratingPDF ? 'Generating PDF...' : 'Download PDF'}
           </button>
         </div>
       </div>
@@ -333,11 +519,18 @@ const ScanReport: React.FC = () => {
         </div>
         <div className="px-6 py-4">
           <div className="flex flex-wrap gap-4">
-            <button className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+            <button 
+              onClick={downloadPDF}
+              disabled={isGeneratingPDF}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <Download className="w-4 h-4 mr-2" />
-              Download PDF
+              {isGeneratingPDF ? 'Generating PDF...' : 'Download PDF'}
             </button>
-            <button className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+            <button 
+              onClick={downloadSARIF}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            >
               <Download className="w-4 h-4 mr-2" />
               Download SARIF
             </button>
