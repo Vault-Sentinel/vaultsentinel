@@ -153,15 +153,28 @@ class ScanEngine:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
             
             if result.returncode != 0:
-                raise RuntimeError(f"Git clone failed: {result.stderr}")
+                # Parse git error messages to provide better user feedback
+                error_msg = result.stderr.lower()
+                if "authentication failed" in error_msg or "permission denied" in error_msg:
+                    raise RuntimeError("This repository is private and requires authentication. VaultSentinel can only scan public repositories.")
+                elif "not found" in error_msg or "does not exist" in error_msg:
+                    raise RuntimeError("Repository not found. Please check the repository URL and ensure it exists.")
+                elif "invalid" in error_msg and "branch" in error_msg:
+                    raise RuntimeError(f"Branch '{branch}' not found in the repository. Please check the branch name.")
+                elif "timeout" in error_msg:
+                    raise RuntimeError("Repository access timed out. The repository might be too large or temporarily unavailable.")
+                else:
+                    raise RuntimeError(f"Failed to access repository: {result.stderr}")
             
             logger.info(f"Successfully cloned {repo_url} to {temp_dir}")
             return temp_dir
             
         except subprocess.TimeoutExpired:
-            raise RuntimeError("Git clone timed out")
+            raise RuntimeError("Repository access timed out. The repository might be too large or the network connection is slow.")
         except Exception as e:
-            raise RuntimeError(f"Failed to clone repository: {e}")
+            if "private" in str(e).lower() or "authentication" in str(e).lower():
+                raise RuntimeError("This repository is private and requires authentication. VaultSentinel can only scan public repositories.")
+            raise RuntimeError(f"Failed to access repository: {e}")
     
     def _validate_repo_url(self, repo_url: str) -> bool:
         """Validate repository URL."""
