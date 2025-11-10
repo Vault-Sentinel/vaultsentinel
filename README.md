@@ -1,5 +1,7 @@
 # VaultSentinel
 
+> **⚠️ Educational Project**: This is an educational project designed to showcase the Model Context Protocol (MCP) server integration. It demonstrates how to build a secrets detection platform with AI-powered analysis using MCP.
+
 A modern secrets detection platform with AI-powered analysis and a comprehensive React dashboard. VaultSentinel provides on-demand repository scanning with hybrid detection (regex + AI) and real-time security findings management.
 
 ## 🏗️ Architecture
@@ -106,6 +108,8 @@ curl https://vaultsentinel-backend-fgain323oq-uw.a.run.app/scans/{scan_id}/repor
 ```
 
 #### **3. MCP Integration**
+> **Note**: This project showcases MCP (Model Context Protocol) server integration for educational purposes. The MCP server demonstrates how to integrate LLM capabilities into security scanning workflows.
+
 ```bash
 # Test MCP health
 curl https://vaultsentinel-backend-fgain323oq-uw.a.run.app/api/mcp/health
@@ -282,7 +286,7 @@ docker run -p 3000:80 vaultsentinel-frontend
 | Variable | Description | Production Value |
 |----------|-------------|-----------------|
 | `MCP_BASE_URL` | MCP server URL | `https://vaultsentinel-mcp-fgain323oq-uw.a.run.app` |
-| `MCP_API_KEY` | MCP API key | `mcp-prod-uX7kH5vP1t9wE3zQfR2gL0sD8yJbM4nC6aVxT1pZ7rBqF9eK3mW2hN5dS0cU8oG4lA6iY1tJ9` |
+| `MCP_API_KEY` | MCP API key | `<your-mcp-api-key>` |
 | `FRONTEND_ORIGIN` | Frontend CORS origin | `https://vaultsentinel-frontend-fgain323oq-uw.a.run.app` |
 | `BACKEND_ORIGIN` | Backend CORS origin | `https://vaultsentinel-backend-fgain323oq-uw.a.run.app` |
 | `CORS_ORIGINS` | Allowed CORS origins | `https://vaultsentinel-frontend-fgain323oq-uw.a.run.app` |
@@ -296,7 +300,7 @@ docker run -p 3000:80 vaultsentinel-frontend
 | Variable | Description | Local Value |
 |----------|-------------|-------------|
 | `MCP_BASE_URL` | MCP server URL | `https://vaultsentinel-mcp-fgain323oq-uw.a.run.app` |
-| `MCP_API_KEY` | MCP API key | `mcp-prod-uX7kH5vP1t9wE3zQfR2gL0sD8yJbM4nC6aVxT1pZ7rBqF9eK3mW2hN5dS0cU8oG4lA6iY1tJ9` |
+| `MCP_API_KEY` | MCP API key | `<your-mcp-api-key>` |
 | `FRONTEND_ORIGIN` | Frontend CORS origin | `http://localhost:3000` |
 | `CORS_ORIGINS` | Allowed CORS origins | `http://localhost:3000` |
 | `GCS_ENABLED` | Enable Google Cloud Storage | `false` |
@@ -304,12 +308,15 @@ docker run -p 3000:80 vaultsentinel-frontend
 
 ## 🔒 Security Considerations
 
+> **⚠️ Security Warning**: Never commit API keys, secrets, or credentials to version control. Always use environment variables or secure secret management systems.
+
 - **Never logs full secrets**: Only masked previews and SHA256 fingerprints
 - **Secure storage**: Uses SQLite with proper indexing
 - **Environment isolation**: All credentials via environment variables
 - **Safe defaults**: Remediation disabled unless explicitly enabled
 - **Idempotent operations**: De-duplication by fingerprint + file path
 - **Structured logging**: JSON logs for observability
+- **Secret management**: All sensitive values should be stored in environment variables or secret management systems
 
 ## 🤝 Contributing
 
