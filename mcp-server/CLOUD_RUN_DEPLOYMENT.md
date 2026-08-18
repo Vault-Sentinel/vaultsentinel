@@ -199,7 +199,7 @@ curl -X POST "$SERVICE_URL/v1/chat" \
   -H "Content-Type: application/json" \
   -d '{
     "conversation": {
-      "messages": [{"role": "user", "content": "Analyze this secret: AKIAIOSFODNN7EXAMPLE"}],
+      "messages": [{"role": "user", "content": "Analyze this secret: AWS_ACCESS_KEY_ID_EXAMPLE"}],
       "provider": "gemini"
     }
   }'

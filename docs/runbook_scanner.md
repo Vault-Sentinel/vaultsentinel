@@ -172,7 +172,7 @@ POST /api/mcp/classify
 Content-Type: application/json
 
 {
-  "text": "AKIA1234567890ABCDEF"
+  "text": "AWS_ACCESS_KEY_ID_EXAMPLE_123"
 }
 ```
 

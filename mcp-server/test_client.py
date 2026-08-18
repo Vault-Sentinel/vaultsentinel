@@ -82,7 +82,7 @@ async def test_mcp_server():
         conversation = {
             "messages": [
                 {"role": "system", "content": "You are a security expert analyzing secrets."},
-                {"role": "user", "content": "Analyze this potential secret: AKIAIOSFODNN7EXAMPLE"}
+                {"role": "user", "content": "Analyze this potential secret: AWS_ACCESS_KEY_ID_EXAMPLE"}
             ],
             "model": "gpt-3.5-turbo",
             "temperature": 0.1,
@@ -162,7 +162,7 @@ async def test_vaultsentinel_integration():
         conversation = {
             "messages": [
                 {"role": "system", "content": "You are a security expert."},
-                {"role": "user", "content": "Analyze this secret: AKIAIOSFODNN7EXAMPLE"}
+                {"role": "user", "content": "Analyze this secret: AWS_ACCESS_KEY_ID_EXAMPLE"}
             ],
             "model": "gpt-3.5-turbo"
         }

@@ -117,7 +117,7 @@ curl https://vaultsentinel-backend-fgain323oq-uw.a.run.app/api/mcp/health
 # Classify text using AI
 curl -X POST https://vaultsentinel-backend-fgain323oq-uw.a.run.app/api/mcp/chat \
   -H "Content-Type: application/json" \
-  -d '{"messages": [{"role": "user", "content": "AKIA1234567890ABCDEF"}]}'
+  -d '{"messages": [{"role": "user", "content": "AWS_ACCESS_KEY_ID_EXAMPLE_123"}]}'
 ```
 
 ### **🔧 Local Development**

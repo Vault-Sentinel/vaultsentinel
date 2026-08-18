@@ -73,7 +73,7 @@ curl -X POST http://localhost:9000/v1/chat \
     "conversation": {
       "messages": [
         {"role": "system", "content": "You are a security expert."},
-        {"role": "user", "content": "Analyze this secret: AKIAIOSFODNN7EXAMPLE"}
+        {"role": "user", "content": "Analyze this secret: AWS_ACCESS_KEY_ID_EXAMPLE"}
       ],
       "model": "gpt-3.5-turbo"
     }
@@ -128,7 +128,7 @@ python main.py --api-only
 curl -X POST http://localhost:8000/mcp/test \
   -H "Content-Type: application/json" \
   -d '{
-    "text": "AKIAIOSFODNN7EXAMPLE",
+    "text": "AWS_ACCESS_KEY_ID_EXAMPLE",
     "context": {"file_path": "config/aws.py", "secret_kind": "aws_access_key"}
   }'
 ```

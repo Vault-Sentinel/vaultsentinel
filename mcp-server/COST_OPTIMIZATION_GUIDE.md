@@ -68,7 +68,7 @@ export ENABLE_CACHING="true"
 
 ### **Secret Classification Request:**
 ```
-Input: "Analyze this secret: AKIAIOSFODNN7EXAMPLE"
+Input: "Analyze this secret: AWS_ACCESS_KEY_ID_EXAMPLE"
 Expected Output: ~50 tokens
 ```
 
@@ -117,7 +117,7 @@ curl -X POST http://localhost:9000/v1/chat \
   -H "Content-Type: application/json" \
   -d '{
     "conversation": {
-      "messages": [{"role": "user", "content": "Analyze this secret: AKIAIOSFODNN7EXAMPLE"}],
+      "messages": [{"role": "user", "content": "Analyze this secret: AWS_ACCESS_KEY_ID_EXAMPLE"}],
       "provider": "gemini"
     }
   }'

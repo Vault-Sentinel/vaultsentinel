@@ -111,7 +111,7 @@ curl -X POST http://localhost:9000/v1/chat \
   -d '{
     "conversation": {
       "messages": [
-        {"role": "user", "content": "Analyze this secret: AKIAIOSFODNN7EXAMPLE"}
+        {"role": "user", "content": "Analyze this secret: AWS_ACCESS_KEY_ID_EXAMPLE"}
       ],
       "model": "gpt-3.5-turbo",
       "provider": "openai"
@@ -127,7 +127,7 @@ curl -X POST http://localhost:9000/v1/chat \
   -d '{
     "conversation": {
       "messages": [
-        {"role": "user", "content": "Analyze this secret: AKIAIOSFODNN7EXAMPLE"}
+        {"role": "user", "content": "Analyze this secret: AWS_ACCESS_KEY_ID_EXAMPLE"}
       ],
       "model": "gemini-1.5-flash",
       "provider": "gemini"
