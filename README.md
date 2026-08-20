@@ -1,6 +1,6 @@
 # VaultSentinel
 
-> **⚠️ Educational Project**: This is an educational project designed to showcase the Model Context Protocol (MCP) server integration. It demonstrates how to build a secrets detection platform with AI-powered analysis using MCP.
+> **⚠️ Educational Project**: This is an educational project designed to showcase the Model Context Protocol (MCP) server integration. It demonstrates how to build a secrets detection platform with AI-powered analysis using MCP. This project's live deployment was taken offline post-launch to optimize cloud spend; source code and architecture remain available for review.
 
 A modern secrets detection platform with AI-powered analysis and a comprehensive React dashboard. VaultSentinel provides on-demand repository scanning with hybrid detection (regex + AI) and real-time security findings management.
 
